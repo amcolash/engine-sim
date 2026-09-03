@@ -290,31 +290,28 @@ bool AudioExporter::generateEngineStart(
         drainAudio(sim, nullptr);
     }
 
-    // 2. Turn on ignition and engage starter motor (forward direction)
+    // 2. Turn on ignition and engage starter motor until engine levels out
     engine->getIgnitionModule()->m_enabled = true;
     sim.m_starterMotor.m_enabled = true;
     sim.m_starterMotor.m_rotationSpeed = -engine->getStarterSpeed();
     sim.m_starterMotor.m_maxTorque = engine->getStarterTorque();
-    engine->setSpeedControl(0.20);
+    engine->setSpeedControl(0.0);
 
-    // 3. Crank until engine catches and stabilizes above starter speed
+    // Hold starter while recording as the engine cranks, fires, and levels out
     const double frameDt = 0.01;
-    for (double t = 0.0; t < 1.5; t += frameDt) {
+    for (double t = 0.0; t < 0.85; t += frameDt) {
         sim.startFrame(frameDt);
-        while (sim.simulateStep()) {
-            if (engine->getSpeed() > units::rpm(750)) {
-                sim.m_starterMotor.m_enabled = false;
-            }
-        }
+        while (sim.simulateStep()) {}
         sim.endFrame();
         drainAudio(sim, &outSamples);
-        if (!sim.m_starterMotor.m_enabled && t > 0.4) break;
     }
+
+    // 3. Release starter
     sim.m_starterMotor.m_enabled = false;
 
-    // 4. Settle at natural idle for 0.5s (no dyno)
+    // 4. Idle for 1.0 second
     engine->setSpeedControl(0.0);
-    runSimulationSteps(sim, 0.50, &outSamples);
+    runSimulationSteps(sim, 1.0, &outSamples);
 
     // 5. 100ms fade-in, 200ms fade-out
     const size_t fadeInSamples = static_cast<size_t>(0.10 * 44100);
