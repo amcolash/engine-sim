@@ -190,6 +190,8 @@ class EngineSimApplication {
 
         struct LoggingErrorHandler *m_error_handler;
 
+        bool m_initialized;
+
 #ifdef ATG_ENGINE_SIM_VIDEO_CAPTURE
         atg_dtv::Encoder m_encoder;
 #endif /* ATG_ENGINE_SIM_VIDEO_CAPTURE */

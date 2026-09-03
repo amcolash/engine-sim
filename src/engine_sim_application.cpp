@@ -92,6 +92,7 @@ EngineSimApplication::EngineSimApplication() {
     m_viewParameters.Layer1 = 0;
 
     m_displayAngle = 0.0f;
+    m_initialized = false;
 
     ysErrorSystem::GetInstance()->AttachErrorHandler(&m_error_handler);
 }
@@ -164,7 +165,12 @@ void EngineSimApplication::initialize(void *instance, ysContextObject::DeviceAPI
     settings.WindowWidth = 1920;
     settings.WindowHeight = 1080;
 
-    m_engine.CreateGameWindow(settings);
+    ysError err = m_engine.CreateGameWindow(settings);
+    if (err != ysError::None || m_engine.GetDevice() == nullptr) {
+        std::cerr << "EngineSimApplication: Failed to create game window / graphics device." << std::endl;
+        m_initialized = false;
+        return;
+    }
 
     m_engine.GetDevice()->CreateSubRenderTarget(
         &m_mainRenderTarget,
@@ -196,6 +202,7 @@ void EngineSimApplication::initialize(void *instance, ysContextObject::DeviceAPI
     m_geometryGenerator.initialize(100000, 200000);
 
     initialize();
+    m_initialized = true;
 }
 
 void EngineSimApplication::initialize() {
@@ -388,6 +395,8 @@ float EngineSimApplication::unitsToPixels(float units) const {
 }
 
 void EngineSimApplication::run() {
+    if (!m_initialized) return;
+
     while (true) {
         m_engine.StartFrame();
 
@@ -465,6 +474,8 @@ void EngineSimApplication::run() {
 }
 
 void EngineSimApplication::destroy() {
+    if (!m_initialized) return;
+
     m_shaderSet.Destroy();
 
     m_engine.GetDevice()->DestroyGPUBuffer(m_geometryVertexBuffer);
