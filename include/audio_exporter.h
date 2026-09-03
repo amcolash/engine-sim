@@ -51,6 +51,9 @@ private:
         PistonEngineSimulator &sim,
         Engine *engine);
 
+    void ensureEngineRunning(
+        PistonEngineSimulator &sim);
+
     void drainAudio(
         PistonEngineSimulator &sim,
         std::vector<float> *recordedSamples = nullptr);

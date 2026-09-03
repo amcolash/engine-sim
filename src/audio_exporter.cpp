@@ -69,7 +69,7 @@ bool AudioExporter::initializeAndStartEngine(PistonEngineSimulator &sim, Engine 
     sim.m_starterMotor.m_enabled = true;
     sim.m_starterMotor.m_rotationSpeed = units::rpm(600);
     sim.m_starterMotor.m_maxTorque = 5000.0;
-    engine->setThrottle(0.35);
+    engine->setSpeedControl(0.35);
 
     // Crank until engine starts and speed exceeds 600 RPM
     const double frameDt = 0.02;
@@ -86,7 +86,7 @@ bool AudioExporter::initializeAndStartEngine(PistonEngineSimulator &sim, Engine 
     sim.m_starterMotor.m_enabled = false;
 
     // Settle at idle for 1.0 second
-    engine->setThrottle(0.0);
+    engine->setSpeedControl(0.0);
     runSimulationSteps(sim, 1.0, nullptr);
 
     return true;
@@ -113,7 +113,7 @@ bool AudioExporter::captureSteadyRpmLoop(
 
     // Set sufficient throttle to keep cylinders firing against dyno load
     double throttle = std::clamp(0.25 + 0.60 * (static_cast<double>(targetRpm) / 8000.0), 0.25, 0.90);
-    engine->setThrottle(throttle);
+    engine->setSpeedControl(throttle);
 
     // Warm up & let dyno lock speed (1.0s)
     runSimulationSteps(sim, 1.0, nullptr);
@@ -181,6 +181,50 @@ bool AudioExporter::captureSteadyRpmLoop(
     return !outSamples.empty();
 }
 
+void AudioExporter::ensureEngineRunning(PistonEngineSimulator &sim) {
+    Engine *engine = sim.getEngine();
+    if (!engine) return;
+
+    // Disengage transmission
+    if (sim.getTransmission()) {
+        sim.getTransmission()->changeGear(-1);
+        sim.getTransmission()->setClutchPressure(0.0);
+    }
+
+    // If engine is stopped or stalled, start it with starter motor
+    if (engine->getSpeed() < units::rpm(500)) {
+        engine->getIgnitionModule()->m_enabled = true;
+        sim.m_starterMotor.m_enabled = true;
+        sim.m_starterMotor.m_rotationSpeed = units::rpm(600);
+        sim.m_starterMotor.m_maxTorque = 5000.0;
+        engine->setSpeedControl(0.35);
+
+        const double frameDt = 0.02;
+        for (double t = 0.0; t < 1.5; t += frameDt) {
+            sim.startFrame(frameDt);
+            while (sim.simulateStep()) {
+                if (engine->getSpeed() > units::rpm(700)) {
+                    sim.m_starterMotor.m_enabled = false;
+                }
+            }
+            sim.endFrame();
+            drainAudio(sim, nullptr);
+        }
+        sim.m_starterMotor.m_enabled = false;
+    }
+
+    // Stabilize at idle using dynamometer at 900 RPM
+    sim.m_dyno.m_enabled = true;
+    sim.m_dyno.m_hold = true;
+    sim.m_dyno.m_rotationSpeed = units::rpm(900);
+    sim.m_dyno.m_maxTorque = 2000.0;
+    engine->getIgnitionModule()->m_enabled = true;
+    engine->setSpeedControl(0.0);
+
+    runSimulationSteps(sim, 0.6, nullptr);
+    drainAudio(sim, nullptr);
+}
+
 bool AudioExporter::generateStarterCrank(
     PistonEngineSimulator &sim,
     double durationSec,
@@ -191,16 +235,28 @@ bool AudioExporter::generateStarterCrank(
 
     outSamples.clear();
 
-    // Disable ignition & dyno
-    engine->getIgnitionModule()->m_enabled = false;
+    // Disengage dyno & transmission
     sim.m_dyno.m_enabled = false;
-    engine->setThrottle(0.1);
+    sim.m_dyno.m_hold = false;
+    if (sim.getTransmission()) {
+        sim.getTransmission()->changeGear(-1);
+        sim.getTransmission()->setClutchPressure(0.0);
+    }
 
-    // Crank with starter motor
+    // Turn off spark completely
+    engine->getIgnitionModule()->m_enabled = false;
+    engine->setSpeedControl(0.0);
+
+    // Let engine coast to complete stop (0.6s)
+    runSimulationSteps(sim, 0.6, nullptr);
+    drainAudio(sim, nullptr);
+
+    // Engage starter motor
     sim.m_starterMotor.m_enabled = true;
-    sim.m_starterMotor.m_rotationSpeed = units::rpm(350);
-    sim.m_starterMotor.m_maxTorque = 1000.0;
+    sim.m_starterMotor.m_rotationSpeed = units::rpm(450);
+    sim.m_starterMotor.m_maxTorque = 4000.0;
 
+    // Record starter churning over the unignited engine
     runSimulationSteps(sim, durationSec, &outSamples);
 
     sim.m_starterMotor.m_enabled = false;
@@ -216,27 +272,37 @@ bool AudioExporter::generateEngineStart(
 
     outSamples.clear();
 
-    // 1. Initial crank without spark (0.3s)
-    engine->getIgnitionModule()->m_enabled = false;
+    // 1. Ensure engine starts completely at rest (0 RPM)
     sim.m_dyno.m_enabled = false;
+    sim.m_dyno.m_hold = false;
+    if (sim.getTransmission()) {
+        sim.getTransmission()->changeGear(-1);
+        sim.getTransmission()->setClutchPressure(0.0);
+    }
+    engine->getIgnitionModule()->m_enabled = false;
+    engine->setSpeedControl(0.25);
+
+    // Spin down to complete standstill
+    runSimulationSteps(sim, 0.6, nullptr);
+    drainAudio(sim, nullptr);
+
+    // 2. Engage starter motor WITHOUT ignition for 0.85 seconds
+    // (captures distinct starter motor churning and compression rhythm)
     sim.m_starterMotor.m_enabled = true;
     sim.m_starterMotor.m_rotationSpeed = units::rpm(450);
-    sim.m_starterMotor.m_maxTorque = 1500.0;
-    engine->setThrottle(0.2);
+    sim.m_starterMotor.m_maxTorque = 4000.0;
+    runSimulationSteps(sim, 0.85, &outSamples);
 
-    runSimulationSteps(sim, 0.3, &outSamples);
-
-    // 2. Enable spark to catch ignition
+    // 3. Turn on ignition / spark while starter is still cranking
     engine->getIgnitionModule()->m_enabled = true;
 
-    // Simulate as engine catches and revs
+    // Simulate as engine catches fire and revs up
     const double frameDt = 0.02;
-    for (double t = 0; t < 1.0; t += frameDt) {
+    for (double t = 0.0; t < 0.60; t += frameDt) {
         sim.startFrame(frameDt);
         while (sim.simulateStep()) {
-            if (engine->getSpeed() > units::rpm(600)) {
+            if (engine->getSpeed() > units::rpm(750)) {
                 sim.m_starterMotor.m_enabled = false;
-                engine->setThrottle(0.0);
             }
         }
         sim.endFrame();
@@ -244,8 +310,17 @@ bool AudioExporter::generateEngineStart(
     }
     sim.m_starterMotor.m_enabled = false;
 
-    // Settle to idle (1.2s)
-    runSimulationSteps(sim, 1.2, &outSamples);
+    // 4. Engine startup flair (0.35s)
+    engine->setSpeedControl(0.40);
+    runSimulationSteps(sim, 0.35, &outSamples);
+
+    // 5. Let engine RPM smoothly settle into steady dyno-governed idle (900 RPM) for 1.8 seconds
+    sim.m_dyno.m_enabled = true;
+    sim.m_dyno.m_hold = true;
+    sim.m_dyno.m_rotationSpeed = units::rpm(900);
+    sim.m_dyno.m_maxTorque = 2000.0;
+    engine->setSpeedControl(0.25);
+    runSimulationSteps(sim, 1.80, &outSamples);
 
     return !outSamples.empty();
 }
@@ -260,19 +335,33 @@ bool AudioExporter::generateRevLimiter(
 
     outSamples.clear();
 
-    // Release dyno and slam throttle 100%
-    sim.m_dyno.m_enabled = false;
-    engine->getIgnitionModule()->m_enabled = true;
-    engine->setThrottle(1.0);
+    // Ensure engine is running at idle
+    ensureEngineRunning(sim);
 
-    // Warm up to rev limiter (0.6s)
+    // Set dynamometer to hold at engine redline with full throttle
+    sim.m_dyno.m_enabled = true;
+    sim.m_dyno.m_hold = true;
+    sim.m_dyno.m_rotationSpeed = engine->getRedline();
+    sim.m_dyno.m_maxTorque = 20000.0;
+    sim.m_dyno.m_ks = 2000.0;
+    sim.m_dyno.m_kd = 20.0;
+
+    engine->getIgnitionModule()->m_enabled = true;
+    engine->setSpeedControl(1.0);
+
+    // Warm up at redline limiter for 0.8s
+    runSimulationSteps(sim, 0.8, nullptr);
+    drainAudio(sim, nullptr);
+
+    // Record the full-throttle rev-limiter bounces for durationSec
+    runSimulationSteps(sim, durationSec, &outSamples);
+
+    // Return throttle to idle and settle
+    engine->setSpeedControl(0.25);
+    sim.m_dyno.m_rotationSpeed = units::rpm(900);
     runSimulationSteps(sim, 0.6, nullptr);
     drainAudio(sim, nullptr);
 
-    // Record limiter oscillation
-    runSimulationSteps(sim, durationSec, &outSamples);
-
-    engine->setThrottle(0.0);
     return !outSamples.empty();
 }
 
@@ -285,37 +374,51 @@ bool AudioExporter::generateThrottleBlip(
 
     outSamples.clear();
 
-    // Settle at idle
-    sim.m_dyno.m_enabled = false;
-    engine->setThrottle(0.0);
-    runSimulationSteps(sim, 0.4, nullptr);
-    drainAudio(sim, nullptr);
+    // Ensure engine is running at idle
+    ensureEngineRunning(sim);
 
-    // Throttle rise (0.1s)
+    // Record 0.20s of clean idle at the beginning
+    runSimulationSteps(sim, 0.20, &outSamples);
+
+    // Release dyno for quick free-rev blip surge
+    sim.m_dyno.m_enabled = false;
+    sim.m_dyno.m_hold = false;
+    engine->getIgnitionModule()->m_enabled = true;
+
+    // Quick blip rise (0.10s): speed control ramp from 0.25 to 0.95
     const double frameDt = 0.01;
     for (double t = 0.0; t < 0.10; t += frameDt) {
         double f = t / 0.10;
-        engine->setThrottle(0.85 * std::sin(f * constants::pi * 0.5));
+        engine->setSpeedControl(0.25 + 0.70 * std::sin(f * constants::pi * 0.5));
         sim.startFrame(frameDt);
         while (sim.simulateStep()) {}
         sim.endFrame();
         drainAudio(sim, &outSamples);
     }
 
-    // Throttle fall (0.15s)
-    for (double t = 0.0; t < 0.15; t += frameDt) {
-        double f = t / 0.15;
-        engine->setThrottle(0.85 * (1.0 - f));
+    // Peak throttle hold (0.05s)
+    engine->setSpeedControl(0.95);
+    runSimulationSteps(sim, 0.05, &outSamples);
+
+    // Throttle fall (0.12s): speed control fall from 0.95 back to 0.25
+    for (double t = 0.0; t < 0.12; t += frameDt) {
+        double f = t / 0.12;
+        engine->setSpeedControl(0.25 + 0.70 * (1.0 - f));
         sim.startFrame(frameDt);
         while (sim.simulateStep()) {}
         sim.endFrame();
         drainAudio(sim, &outSamples);
     }
 
-    engine->setThrottle(0.0);
+    // Catch revs and settle back into 900 RPM idle with dyno
+    sim.m_dyno.m_enabled = true;
+    sim.m_dyno.m_hold = true;
+    sim.m_dyno.m_rotationSpeed = units::rpm(900);
+    sim.m_dyno.m_maxTorque = 3000.0;
+    engine->setSpeedControl(0.25);
 
-    // Settle back to idle (1.0s)
-    runSimulationSteps(sim, 1.0, &outSamples);
+    // Record smooth return to idle (1.4s)
+    runSimulationSteps(sim, 1.40, &outSamples);
 
     return !outSamples.empty();
 }
@@ -331,20 +434,25 @@ bool AudioExporter::generateDecelCrackle(
 
     outSamples.clear();
 
-    // Hold at high RPM
+    // Ensure engine is running
+    ensureEngineRunning(sim);
+
+    // Hold at high RPM using dyno
     sim.m_dyno.m_enabled = true;
     sim.m_dyno.m_hold = true;
     sim.m_dyno.m_rotationSpeed = units::rpm(initialRpm);
-    sim.m_dyno.m_maxTorque = 10000.0;
-    engine->setThrottle(0.7);
+    sim.m_dyno.m_maxTorque = 20000.0;
+    engine->setSpeedControl(0.75);
 
-    runSimulationSteps(sim, 0.6, nullptr);
+    runSimulationSteps(sim, 0.8, nullptr);
     drainAudio(sim, nullptr);
 
-    // Release dyno and chop throttle to 0
+    // Release dyno and chop throttle to idle
     sim.m_dyno.m_enabled = false;
-    engine->setThrottle(0.0);
+    sim.m_dyno.m_hold = false;
+    engine->setSpeedControl(0.0);
 
+    // Record deceleration overrun crackle
     runSimulationSteps(sim, durationSec, &outSamples);
 
     return !outSamples.empty();
