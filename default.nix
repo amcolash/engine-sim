@@ -1,7 +1,10 @@
 { pkgs ? import <nixpkgs> {}
-, src ? builtins.fetchGit { url = ./.; submodules = true; }
+, source ? null
 }:
 
+let
+  src = if source != null then source else builtins.fetchGit { url = ./.; submodules = true; };
+in
 pkgs.stdenv.mkDerivation {
   pname = "engine-sim";
   version = "0.1.12";
