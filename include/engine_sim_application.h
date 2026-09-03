@@ -113,7 +113,7 @@ class EngineSimApplication {
         int m_gameWindowHeight;
         int m_screenWidth;
         int m_screenHeight;
-        
+
         ApplicationSettings m_applicationSettings;
         dbasic::ShaderSet m_shaderSet;
         Shaders m_shaders;

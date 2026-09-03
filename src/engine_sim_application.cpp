@@ -237,7 +237,7 @@ void EngineSimApplication::initialize() {
     // Create a global instance of discord-rpc
     CDiscord::CreateInstance();
 
-    // Enable it, this needs to be set via a config file of some sort. 
+    // Enable it, this needs to be set via a config file of some sort.
     GetDiscordManager()->SetUseDiscord(true);
     DiscordRichPresence passMe = { 0 };
 
