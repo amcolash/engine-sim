@@ -416,11 +416,14 @@ bool AudioExporter::generateThrottleBlip(
 
     outSamples.clear();
 
-    // 1. Ensure engine is running and stabilized at natural idle (no dyno)
+    // 1. Ensure engine is running and stabilized at natural lowest idle (no dyno)
     ensureEngineRunning(sim);
+    engine->setSpeedControl(0.0);
+    runSimulationSteps(sim, 0.5, nullptr);
+    drainAudio(sim, nullptr);
 
-    // 2. Record 0.5s of stable natural idle
-    engine->setSpeedControl(0.01);
+    // 2. Record 0.5s of quiet, stable natural idle lead-in
+    engine->setSpeedControl(0.0);
     runSimulationSteps(sim, 0.50, &outSamples);
 
     // 3. Briefly tap R (snap to 1.0) — engine revs up freely under its own power
@@ -440,7 +443,8 @@ bool AudioExporter::generateThrottleBlip(
     // 4. Release throttle back to natural idle (0.0) — coast down naturally
     engine->setSpeedControl(0.0);
 
-    const double idleTarget = units::rpm(1300);
+    // Target low base idle (~1050 RPM)
+    const double idleTarget = units::rpm(1100);
 
     for (double t = 0.0; t < 5.0; t += frameDt) {
         sim.startFrame(frameDt);
@@ -450,10 +454,11 @@ bool AudioExporter::generateThrottleBlip(
         if (t > 0.4 && engine->getSpeed() <= idleTarget) break;
     }
 
-    // 5. Short idle tail to settle smoothly
-    runSimulationSteps(sim, 0.40, &outSamples);
+    // 5. Short quiet idle tail to settle smoothly
+    runSimulationSteps(sim, 0.35, &outSamples);
 
-    WavWriter::applyEnvelopeFade(outSamples, 256, 2048);
+    // Apply smooth 200ms cosine fade-in and 200ms fade-out
+    WavWriter::applyEnvelopeFade(outSamples, 8820, 8820);
 
     return !outSamples.empty();
 }
