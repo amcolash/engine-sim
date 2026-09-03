@@ -390,13 +390,20 @@ bool AudioExporter::generateThrottleBlip(
 
     outSamples.clear();
 
-    // Start from a stable idle with no dyno interference
+    // Stabilize at idle using the dyno first, then hand off to free-run
     ensureEngineRunning(sim);
+
+    // Bring throttle to a self-sustaining idle level, then release the dyno
+    // so the engine holds idle on its own before we start recording
+    engine->setSpeedControl(0.20);
     sim.m_dyno.m_enabled = false;
     sim.m_dyno.m_hold = false;
+    // Let it settle for 0.8s un-clamped to confirm it can hold idle freely
+    runSimulationSteps(sim, 0.8, nullptr);
+    drainAudio(sim, nullptr);
 
-    // 1. Record 0.30s of clean idle so the clip doesn't start abruptly
-    runSimulationSteps(sim, 0.30, &outSamples);
+    // 1. Record 0.5s of stable idle lead-in
+    runSimulationSteps(sim, 0.5, &outSamples);
 
     // 2. Snap throttle to WOT — engine accelerates freely under its own inertia
     engine->setSpeedControl(1.0);
@@ -404,8 +411,8 @@ bool AudioExporter::generateThrottleBlip(
     const double frameDt = 0.01;
     const double maxRevThreshold = engine->getRedline() * 0.90;
 
-    // Allow up to 4s for RPM to climb; break early once near redline
-    for (double t = 0.0; t < 4.0; t += frameDt) {
+    // Allow up to 5s for RPM to climb; break early once near redline
+    for (double t = 0.0; t < 5.0; t += frameDt) {
         sim.startFrame(frameDt);
         while (sim.simulateStep()) {}
         sim.endFrame();
@@ -413,12 +420,12 @@ bool AudioExporter::generateThrottleBlip(
         if (engine->getSpeed() >= maxRevThreshold) break;
     }
 
-    // 3. Snap throttle fully closed — engine decelerates naturally under its own
-    //    inertia and backpressure. No dyno, no governor.
-    engine->setSpeedControl(0.0);
+    // 3. Lift off — drop to a minimum idle throttle floor (not zero) to prevent
+    //    stall while still letting the engine decelerate naturally under inertia
+    const double idleFloor = 0.18;
+    engine->setSpeedControl(idleFloor);
 
-    // ~1200 RPM in rad/s as a coast-down target (slightly above true idle to avoid stall)
-    const double idleTarget = units::rpm(1200);
+    const double idleTarget = units::rpm(1300); // settle target
 
     // 4. Record the natural coast-down back to idle (up to 5s; break once settled)
     for (double t = 0.0; t < 5.0; t += frameDt) {
@@ -429,11 +436,10 @@ bool AudioExporter::generateThrottleBlip(
         if (t > 0.5 && engine->getSpeed() <= idleTarget) break;
     }
 
-    // 5. Short idle tail so the clip ends without an abrupt cutoff
-    engine->setSpeedControl(0.25);
-    runSimulationSteps(sim, 0.40, &outSamples);
+    // 5. Short idle tail so the clip ends cleanly
+    runSimulationSteps(sim, 0.30, &outSamples);
 
-    // Tiny fade at edges only — keep the body untouched
+    // Tiny edge fade only — keep the body untouched
     WavWriter::applyEnvelopeFade(outSamples, 256, 2048);
 
     return !outSamples.empty();
