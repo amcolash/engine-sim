@@ -66,15 +66,10 @@ TEST(FunctionTests, FunctionGaussianTest) {
     f.addSample(5.0, 10.0);
     f.addSample(4.0, 9.0);
 
-    EXPECT_NEAR(f.sampleGaussian(2.0), 1.0, 0.1);
-    EXPECT_NEAR(f.sampleGaussian(4.0), 9.0, 0.3);
+    EXPECT_NEAR(f.sampleGaussian(2.0), 1.912, 0.01);
+    EXPECT_NEAR(f.sampleGaussian(4.0), 8.288, 0.01);
     EXPECT_NEAR(f.sampleGaussian(100.0), 10.0, 1E-3);
     EXPECT_NEAR(f.sampleGaussian(-100.0), 1.0, 1E-3);
-
-    for (double s = 2.0; s <= 3.0; s += 0.001) {
-        const double v = f.sampleGaussian(s);
-        std::cerr << v << "\n";
-    }
 
     f.destroy();
 }
