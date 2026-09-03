@@ -39,6 +39,11 @@ public:
     static void applyMicroCrossfade(
         std::vector<float> &audioSamples,
         size_t crossfadeSamples = 32);
+
+    static void applyEnvelopeFade(
+        std::vector<float> &audioSamples,
+        size_t fadeInSamples = 128,
+        size_t fadeOutSamples = 512);
 };
 
 #endif /* ATG_ENGINE_SIM_WAV_WRITER_H */

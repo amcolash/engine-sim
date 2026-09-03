@@ -96,12 +96,22 @@ bool AudioExporter::captureSteadyRpmLoop(
     PistonEngineSimulator &sim,
     int targetRpm,
     int cyclesToCapture,
+    double minDurationSec,
     std::vector<float> &outSamples)
 {
     Engine *engine = sim.getEngine();
     if (!engine) return false;
 
     outSamples.clear();
+
+    // In a 4-stroke engine, 1 combustion cycle (720 deg) = 120 / RPM seconds.
+    // Ensure we capture enough complete cycles to meet or exceed minDurationSec (e.g. >= 1.0s).
+    int totalCycles = cyclesToCapture;
+    if (minDurationSec > 0.0 && targetRpm > 0) {
+        double secondsPerCycle = 120.0 / static_cast<double>(targetRpm);
+        int requiredCycles = static_cast<int>(std::ceil(minDurationSec / secondsPerCycle));
+        totalCycles = std::max(cyclesToCapture, requiredCycles);
+    }
 
     // Configure virtual dynamometer to hold exact target RPM
     sim.m_dyno.m_enabled = true;
@@ -148,7 +158,7 @@ bool AudioExporter::captureSteadyRpmLoop(
     int completedCycles = 0;
     lastAngle = crank->getCycleAngle();
 
-    for (int frame = 0; frame < 3000; ++frame) {
+    for (int frame = 0; frame < 4000; ++frame) {
         sim.startFrame(frameDt);
         bool finished = false;
         while (sim.simulateStep()) {
@@ -157,7 +167,7 @@ bool AudioExporter::captureSteadyRpmLoop(
             // Check cycle boundary crossing
             if (std::abs(angle - lastAngle) > wrapThreshold) {
                 completedCycles++;
-                if (completedCycles >= cyclesToCapture) {
+                if (completedCycles >= totalCycles) {
                     finished = true;
                     break;
                 }
@@ -225,44 +235,6 @@ void AudioExporter::ensureEngineRunning(PistonEngineSimulator &sim) {
     drainAudio(sim, nullptr);
 }
 
-bool AudioExporter::generateStarterCrank(
-    PistonEngineSimulator &sim,
-    double durationSec,
-    std::vector<float> &outSamples)
-{
-    Engine *engine = sim.getEngine();
-    if (!engine) return false;
-
-    outSamples.clear();
-
-    // Disengage dyno & transmission
-    sim.m_dyno.m_enabled = false;
-    sim.m_dyno.m_hold = false;
-    if (sim.getTransmission()) {
-        sim.getTransmission()->changeGear(-1);
-        sim.getTransmission()->setClutchPressure(0.0);
-    }
-
-    // Turn off spark completely
-    engine->getIgnitionModule()->m_enabled = false;
-    engine->setSpeedControl(0.0);
-
-    // Let engine coast to complete stop (0.6s)
-    runSimulationSteps(sim, 0.6, nullptr);
-    drainAudio(sim, nullptr);
-
-    // Engage starter motor
-    sim.m_starterMotor.m_enabled = true;
-    sim.m_starterMotor.m_rotationSpeed = units::rpm(450);
-    sim.m_starterMotor.m_maxTorque = 4000.0;
-
-    // Record starter churning over the unignited engine
-    runSimulationSteps(sim, durationSec, &outSamples);
-
-    sim.m_starterMotor.m_enabled = false;
-    return !outSamples.empty();
-}
-
 bool AudioExporter::generateEngineStart(
     PistonEngineSimulator &sim,
     std::vector<float> &outSamples)
@@ -272,31 +244,48 @@ bool AudioExporter::generateEngineStart(
 
     outSamples.clear();
 
-    // 1. Ensure engine starts completely at rest (0 RPM)
+    // 1. Ensure dyno & transmission are completely disengaged
     sim.m_dyno.m_enabled = false;
     sim.m_dyno.m_hold = false;
     if (sim.getTransmission()) {
         sim.getTransmission()->changeGear(-1);
         sim.getTransmission()->setClutchPressure(0.0);
     }
-    engine->getIgnitionModule()->m_enabled = false;
-    engine->setSpeedControl(0.25);
 
-    // Spin down to complete standstill
-    runSimulationSteps(sim, 0.6, nullptr);
+    // Turn off ignition and let engine come to a complete standstill at 0 RPM
+    engine->getIgnitionModule()->m_enabled = false;
+    engine->setSpeedControl(0.0);
+    runSimulationSteps(sim, 0.8, nullptr);
     drainAudio(sim, nullptr);
 
-    // 2. Engage starter motor WITHOUT ignition for 0.85 seconds
-    // (captures distinct starter motor churning and compression rhythm)
-    sim.m_starterMotor.m_enabled = true;
-    sim.m_starterMotor.m_rotationSpeed = units::rpm(450);
-    sim.m_starterMotor.m_maxTorque = 4000.0;
-    runSimulationSteps(sim, 0.85, &outSamples);
+    // Let any synthesizer convolution impulse response ringout settle into absolute silence
+    for (int frame = 0; frame < 20; ++frame) {
+        sim.startFrame(0.02);
+        while (sim.simulateStep()) {}
+        sim.endFrame();
+        drainAudio(sim, nullptr);
+    }
 
-    // 3. Turn on ignition / spark while starter is still cranking
+    // 2. Engage starter motor WITHOUT ignition (ramping smoothly from silence)
+    sim.m_starterMotor.m_enabled = true;
+    sim.m_starterMotor.m_rotationSpeed = units::rpm(480);
+    sim.m_starterMotor.m_maxTorque = 0.0;
+    engine->setSpeedControl(0.35); // Startup flare throttle
+
+    const double crankDt = 0.01;
+    for (double t = 0.0; t < 0.45; t += crankDt) {
+        double torqueRamp = std::min(4500.0, 4500.0 * (t / 0.15));
+        sim.m_starterMotor.m_maxTorque = torqueRamp;
+        sim.startFrame(crankDt);
+        while (sim.simulateStep()) {}
+        sim.endFrame();
+        drainAudio(sim, &outSamples);
+    }
+
+    // 3. Enable spark while starter is turning
     engine->getIgnitionModule()->m_enabled = true;
 
-    // Simulate as engine catches fire and revs up
+    // Simulate ignition catch and free-rev flare to ~2000 RPM (no dyno)
     const double frameDt = 0.02;
     for (double t = 0.0; t < 0.60; t += frameDt) {
         sim.startFrame(frameDt);
@@ -310,17 +299,16 @@ bool AudioExporter::generateEngineStart(
     }
     sim.m_starterMotor.m_enabled = false;
 
-    // 4. Engine startup flair (0.35s)
-    engine->setSpeedControl(0.40);
-    runSimulationSteps(sim, 0.35, &outSamples);
-
-    // 5. Let engine RPM smoothly settle into steady dyno-governed idle (900 RPM) for 1.8 seconds
+    // 4. Catch the deceleration smoothly into 900 RPM idle governor for 1.8s
     sim.m_dyno.m_enabled = true;
     sim.m_dyno.m_hold = true;
     sim.m_dyno.m_rotationSpeed = units::rpm(900);
-    sim.m_dyno.m_maxTorque = 2000.0;
+    sim.m_dyno.m_maxTorque = 1500.0;
     engine->setSpeedControl(0.25);
     runSimulationSteps(sim, 1.80, &outSamples);
+
+    // Apply envelope fade to ensure 100% clickless start from silence and smooth tail
+    WavWriter::applyEnvelopeFade(outSamples, 256, 4096);
 
     return !outSamples.empty();
 }
@@ -338,23 +326,51 @@ bool AudioExporter::generateRevLimiter(
     // Ensure engine is running at idle
     ensureEngineRunning(sim);
 
-    // Set dynamometer to hold at engine redline with full throttle
+    const double redlineRpm = units::toRpm(engine->getRedline());
+    const double bounceLowRpm = std::max(1500.0, redlineRpm - 500.0);
+
+    // Warm up to redline (0.5s)
     sim.m_dyno.m_enabled = true;
     sim.m_dyno.m_hold = true;
     sim.m_dyno.m_rotationSpeed = engine->getRedline();
-    sim.m_dyno.m_maxTorque = 20000.0;
-    sim.m_dyno.m_ks = 2000.0;
-    sim.m_dyno.m_kd = 20.0;
-
+    sim.m_dyno.m_maxTorque = 8000.0;
     engine->getIgnitionModule()->m_enabled = true;
     engine->setSpeedControl(1.0);
 
-    // Warm up at redline limiter for 0.8s
-    runSimulationSteps(sim, 0.8, nullptr);
+    runSimulationSteps(sim, 0.5, nullptr);
     drainAudio(sim, nullptr);
 
-    // Record the full-throttle rev-limiter bounces for durationSec
-    runSimulationSteps(sim, durationSec, &outSamples);
+    // Record rapid bouncing between redline and redline - 500 RPM
+    const double bouncePeriod = 0.12; // 120ms bounce cycle (~8.3 Hz)
+    const double halfPeriod = bouncePeriod * 0.5;
+    const double frameDt = 0.01;
+
+    double elapsed = 0.0;
+    while (elapsed < durationSec) {
+        // High surge towards redline with WOT
+        sim.m_dyno.m_rotationSpeed = units::rpm(redlineRpm);
+        engine->setSpeedControl(1.0);
+        for (double t = 0.0; t < halfPeriod && elapsed < durationSec; t += frameDt, elapsed += frameDt) {
+            sim.startFrame(frameDt);
+            while (sim.simulateStep()) {}
+            sim.endFrame();
+            drainAudio(sim, &outSamples);
+        }
+
+        // Ignition cut / overrun dip down 500 RPM
+        sim.m_dyno.m_rotationSpeed = units::rpm(bounceLowRpm);
+        engine->setSpeedControl(0.10);
+        for (double t = 0.0; t < halfPeriod && elapsed < durationSec; t += frameDt, elapsed += frameDt) {
+            sim.startFrame(frameDt);
+            while (sim.simulateStep()) {}
+            sim.endFrame();
+            drainAudio(sim, &outSamples);
+        }
+    }
+
+    // Apply seamless micro-crossfade and smooth boundary envelopes
+    WavWriter::applyMicroCrossfade(outSamples, 64);
+    WavWriter::applyEnvelopeFade(outSamples, 256, 1024);
 
     // Return throttle to idle and settle
     engine->setSpeedControl(0.25);
@@ -377,48 +393,47 @@ bool AudioExporter::generateThrottleBlip(
     // Ensure engine is running at idle
     ensureEngineRunning(sim);
 
-    // Record 0.20s of clean idle at the beginning
+    // 1. Record 0.20s of clean idle
     runSimulationSteps(sim, 0.20, &outSamples);
 
-    // Release dyno for quick free-rev blip surge
+    // 2. Disengage dyno and open throttle to 1.0 (WOT) over 0.08s
     sim.m_dyno.m_enabled = false;
     sim.m_dyno.m_hold = false;
     engine->getIgnitionModule()->m_enabled = true;
 
-    // Quick blip rise (0.10s): speed control ramp from 0.25 to 0.95
     const double frameDt = 0.01;
-    for (double t = 0.0; t < 0.10; t += frameDt) {
-        double f = t / 0.10;
-        engine->setSpeedControl(0.25 + 0.70 * std::sin(f * constants::pi * 0.5));
+    for (double t = 0.0; t < 0.08; t += frameDt) {
+        double f = t / 0.08;
+        engine->setSpeedControl(0.25 + 0.75 * f);
         sim.startFrame(frameDt);
         while (sim.simulateStep()) {}
         sim.endFrame();
         drainAudio(sim, &outSamples);
     }
 
-    // Peak throttle hold (0.05s)
-    engine->setSpeedControl(0.95);
-    runSimulationSteps(sim, 0.05, &outSamples);
-
-    // Throttle fall (0.12s): speed control fall from 0.95 back to 0.25
-    for (double t = 0.0; t < 0.12; t += frameDt) {
-        double f = t / 0.12;
-        engine->setSpeedControl(0.25 + 0.70 * (1.0 - f));
+    // 3. Hold WOT while engine roars from idle all the way up to max RPM (near redline)
+    engine->setSpeedControl(1.0);
+    const double maxRevThreshold = engine->getRedline() * 0.90;
+    for (double t = 0.0; t < 0.40; t += frameDt) {
         sim.startFrame(frameDt);
         while (sim.simulateStep()) {}
         sim.endFrame();
         drainAudio(sim, &outSamples);
+        if (engine->getSpeed() >= maxRevThreshold) break;
     }
 
-    // Catch revs and settle back into 900 RPM idle with dyno
+    // 4. Snap throttle back to idle (0.25) and catch decel into 900 RPM idle governor
+    engine->setSpeedControl(0.25);
     sim.m_dyno.m_enabled = true;
     sim.m_dyno.m_hold = true;
     sim.m_dyno.m_rotationSpeed = units::rpm(900);
-    sim.m_dyno.m_maxTorque = 3000.0;
-    engine->setSpeedControl(0.25);
+    sim.m_dyno.m_maxTorque = 1500.0;
 
-    // Record smooth return to idle (1.4s)
-    runSimulationSteps(sim, 1.40, &outSamples);
+    // 5. Record deceleration and rich overrun rumble trailing back into steady idle (1.8s)
+    runSimulationSteps(sim, 1.80, &outSamples);
+
+    // Apply envelope fade for smooth clickless boundaries
+    WavWriter::applyEnvelopeFade(outSamples, 256, 4096);
 
     return !outSamples.empty();
 }
@@ -454,6 +469,9 @@ bool AudioExporter::generateDecelCrackle(
 
     // Record deceleration overrun crackle
     runSimulationSteps(sim, durationSec, &outSamples);
+
+    // Apply envelope fade for smooth boundary transitions
+    WavWriter::applyEnvelopeFade(outSamples, 256, 4096);
 
     return !outSamples.empty();
 }
@@ -561,7 +579,7 @@ bool AudioExporter::exportVehicle(
                     scriptContent.find("node main") != std::string::npos);
 
     if (hasMain) {
-        entryScriptContent = 
+        entryScriptContent =
             "import \"engine_sim.mr\"\n"
             "import \"themes/default.mr\"\n"
             "import \"" + resolvedScriptPath.filename().string() + "\"\n\n"
@@ -577,7 +595,7 @@ bool AudioExporter::exportVehicle(
             detectedNode = resolvedScriptPath.stem().string();
         }
 
-        entryScriptContent = 
+        entryScriptContent =
             "import \"engine_sim.mr\"\n"
             "import \"themes/default.mr\"\n"
             "import \"" + resolvedScriptPath.filename().string() + "\"\n\n"
@@ -728,10 +746,20 @@ bool AudioExporter::exportVehicle(
             float progress = 0.1f + 0.6f * (static_cast<float>(idx) / std::max(1.0f, static_cast<float>(targetRpms.size())));
             if (callback) callback->onProgress(vehicleConfig.id, "RPM " + std::to_string(rpm), progress);
 
-            std::cout << "  -> Recording loop @ " << rpm << " RPM (" << vehicleConfig.exportProfile.cyclesPerLoop << " cycles)..." << std::flush;
+            int cycles = vehicleConfig.exportProfile.cyclesPerLoop;
+            if (vehicleConfig.exportProfile.minLoopDurationSec > 0.0 && rpm > 0) {
+                double secPerCycle = 120.0 / static_cast<double>(rpm);
+                cycles = std::max(cycles, static_cast<int>(std::ceil(vehicleConfig.exportProfile.minLoopDurationSec / secPerCycle)));
+            }
+            std::cout << "  -> Recording loop @ " << rpm << " RPM (" << cycles << " cycles, >=" << vehicleConfig.exportProfile.minLoopDurationSec << "s)..." << std::flush;
 
             std::vector<float> loopSamples;
-            bool success = captureSteadyRpmLoop(*simulator, rpm, vehicleConfig.exportProfile.cyclesPerLoop, loopSamples);
+            bool success = captureSteadyRpmLoop(
+                *simulator,
+                rpm,
+                vehicleConfig.exportProfile.cyclesPerLoop,
+                vehicleConfig.exportProfile.minLoopDurationSec,
+                loopSamples);
             if (success && !loopSamples.empty()) {
                 std::string fileName = "rpm_" + std::to_string(rpm) + ".wav";
                 std::string filePath = vehicleOutputDir + "/" + fileName;
@@ -760,26 +788,9 @@ bool AudioExporter::exportVehicle(
     }
 
     // 6. Export Transient Sounds
-    // A. Starter Crank
+    // A. Engine Start (from silent -> rev to 2000 RPM -> decel to idle)
     if (vehicleConfig.exportProfile.exportStarter) {
-        if (callback) callback->onProgress(vehicleConfig.id, "Starter Crank", 0.75f);
-        std::cout << "  -> Recording starter crank..." << std::flush;
-        std::vector<float> samples;
-        if (generateStarterCrank(*simulator, 1.5, samples)) {
-            std::string fileName = "starter_crank.wav";
-            WavWriter::writeWav(vehicleOutputDir + "/" + fileName, samples, wavOpts);
-            RenderedTransient rt;
-            rt.type = "starter_crank";
-            rt.fileName = fileName;
-            rt.durationSec = static_cast<double>(samples.size()) / globalSettings.sampleRate;
-            renderedTransients.push_back(rt);
-            std::cout << " OK (" << rt.durationSec << "s)\n";
-        }
-    }
-
-    // B. Engine Start
-    if (vehicleConfig.exportProfile.exportStarter) {
-        if (callback) callback->onProgress(vehicleConfig.id, "Engine Start", 0.80f);
+        if (callback) callback->onProgress(vehicleConfig.id, "Engine Start", 0.75f);
         std::cout << "  -> Recording engine start..." << std::flush;
         std::vector<float> samples;
         if (generateEngineStart(*simulator, samples)) {

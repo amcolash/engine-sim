@@ -11,13 +11,17 @@ TEST(ExportRecipeTests, ParseGameVehiclesRecipe) {
     EXPECT_EQ(recipe.globalSettings.outputDir, "assets/audio/engines");
     EXPECT_TRUE(recipe.globalSettings.embedLoopMarkers);
 
-    EXPECT_GE(recipe.vehicles.size(), 6);
+    EXPECT_EQ(recipe.vehicles.size(), 10);
     EXPECT_EQ(recipe.vehicles[0].id, "grizzly");
     EXPECT_EQ(recipe.vehicles[0].exportProfile.rpmMin, 1000);
     EXPECT_EQ(recipe.vehicles[0].exportProfile.rpmMax, 5000);
     EXPECT_EQ(recipe.vehicles[0].exportProfile.rpmStep, 500);
     EXPECT_TRUE(recipe.vehicles[0].exportProfile.exportStarter);
     EXPECT_TRUE(recipe.vehicles[0].exportProfile.exportRevLimiter);
+    EXPECT_EQ(recipe.vehicles[6].id, "phantom");
+    EXPECT_EQ(recipe.vehicles[7].id, "boxer");
+    EXPECT_EQ(recipe.vehicles[8].id, "quattro");
+    EXPECT_EQ(recipe.vehicles[9].id, "corsa");
 }
 
 TEST(ExportRecipeTests, CreateDefaultSingleEngine) {

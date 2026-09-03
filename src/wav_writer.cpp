@@ -57,6 +57,28 @@ void WavWriter::applyMicroCrossfade(std::vector<float> &audioSamples, size_t cro
     }
 }
 
+void WavWriter::applyEnvelopeFade(std::vector<float> &audioSamples, size_t fadeInSamples, size_t fadeOutSamples) {
+    const size_t total = audioSamples.size();
+    if (total == 0) return;
+
+    constexpr double pi = 3.14159265358979323846;
+
+    // Fade in
+    size_t inLen = std::min(fadeInSamples, total / 2);
+    for (size_t i = 0; i < inLen; ++i) {
+        double f = 0.5 * (1.0 - std::cos(pi * static_cast<double>(i) / inLen));
+        audioSamples[i] *= static_cast<float>(f);
+    }
+
+    // Fade out
+    size_t outLen = std::min(fadeOutSamples, total / 2);
+    for (size_t i = 0; i < outLen; ++i) {
+        size_t idx = total - outLen + i;
+        double f = 0.5 * (1.0 + std::cos(pi * static_cast<double>(i) / outLen));
+        audioSamples[idx] *= static_cast<float>(f);
+    }
+}
+
 bool WavWriter::writeWav(
     const std::string &filePath,
     const std::vector<float> &audioSamples,

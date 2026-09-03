@@ -40,7 +40,6 @@ TEST(AudioExporterTests, ExportMiniProfile) {
     const std::string vehicleDir = testOutputDir + "/test_i4";
     EXPECT_TRUE(std::filesystem::exists(vehicleDir + "/rpm_1000.wav"));
     EXPECT_TRUE(std::filesystem::exists(vehicleDir + "/rpm_2000.wav"));
-    EXPECT_TRUE(std::filesystem::exists(vehicleDir + "/starter_crank.wav"));
     EXPECT_TRUE(std::filesystem::exists(vehicleDir + "/engine_start.wav"));
     EXPECT_TRUE(std::filesystem::exists(vehicleDir + "/rev_blip.wav"));
     EXPECT_TRUE(std::filesystem::exists(vehicleDir + "/manifest.json"));

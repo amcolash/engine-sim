@@ -5,7 +5,8 @@
     "bits_per_sample": 16,
     "normalize_peak_dbfs": -1.0,
     "embed_loop_markers": true,
-    "default_cycles_per_loop": 6
+    "default_cycles_per_loop": 6,
+    "default_min_loop_duration_sec": 1.0
   },
   "search_paths": ["assets", "assets/engines", "part-library"],
   "vehicles": [

@@ -67,11 +67,7 @@ private:
         PistonEngineSimulator &sim,
         int targetRpm,
         int cyclesToCapture,
-        std::vector<float> &outSamples);
-
-    bool generateStarterCrank(
-        PistonEngineSimulator &sim,
-        double durationSec,
+        double minDurationSec,
         std::vector<float> &outSamples);
 
     bool generateEngineStart(

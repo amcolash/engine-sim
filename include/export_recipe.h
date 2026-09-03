@@ -10,6 +10,7 @@ struct ExportProfile {
     int rpmMax = 6000;
     int rpmStep = 500;
     int cyclesPerLoop = 6;
+    double minLoopDurationSec = 1.0;
     bool exportSteadyRpm = true;
     bool exportStarter = true;
     bool exportRevLimiter = true;
@@ -35,6 +36,7 @@ struct GlobalExportSettings {
     float normalizePeakDbfs = -1.0f;
     bool embedLoopMarkers = true;
     int defaultCyclesPerLoop = 6;
+    double defaultMinLoopDurationSec = 1.0;
 };
 
 struct ExportRecipe {

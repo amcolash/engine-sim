@@ -32,6 +32,8 @@ bool ExportRecipe::parseJsonString(const std::string &jsonStr, ExportRecipe &rec
             if (gs.contains("normalize_peak_dbfs")) recipe.globalSettings.normalizePeakDbfs = gs["normalize_peak_dbfs"].get<float>();
             if (gs.contains("embed_loop_markers")) recipe.globalSettings.embedLoopMarkers = gs["embed_loop_markers"].get<bool>();
             if (gs.contains("default_cycles_per_loop")) recipe.globalSettings.defaultCyclesPerLoop = gs["default_cycles_per_loop"].get<int>();
+            if (gs.contains("default_min_loop_duration_sec")) recipe.globalSettings.defaultMinLoopDurationSec = gs["default_min_loop_duration_sec"].get<double>();
+            if (gs.contains("min_loop_duration_sec")) recipe.globalSettings.defaultMinLoopDurationSec = gs["min_loop_duration_sec"].get<double>();
         }
 
         // Global search paths
@@ -58,6 +60,7 @@ bool ExportRecipe::parseJsonString(const std::string &jsonStr, ExportRecipe &rec
                 }
 
                 vc.exportProfile.cyclesPerLoop = recipe.globalSettings.defaultCyclesPerLoop;
+                vc.exportProfile.minLoopDurationSec = recipe.globalSettings.defaultMinLoopDurationSec;
 
                 if (v.contains("export_profile")) {
                     auto &ep = v["export_profile"];
@@ -65,6 +68,7 @@ bool ExportRecipe::parseJsonString(const std::string &jsonStr, ExportRecipe &rec
                     if (ep.contains("rpm_max")) vc.exportProfile.rpmMax = ep["rpm_max"].get<int>();
                     if (ep.contains("rpm_step")) vc.exportProfile.rpmStep = ep["rpm_step"].get<int>();
                     if (ep.contains("cycles_per_loop")) vc.exportProfile.cyclesPerLoop = ep["cycles_per_loop"].get<int>();
+                    if (ep.contains("min_loop_duration_sec")) vc.exportProfile.minLoopDurationSec = ep["min_loop_duration_sec"].get<double>();
                     if (ep.contains("export_steady_rpm")) vc.exportProfile.exportSteadyRpm = ep["export_steady_rpm"].get<bool>();
                     if (ep.contains("export_starter")) vc.exportProfile.exportStarter = ep["export_starter"].get<bool>();
                     if (ep.contains("export_rev_limiter")) vc.exportProfile.exportRevLimiter = ep["export_rev_limiter"].get<bool>();
