@@ -1,12 +1,23 @@
 { pkgs ? import <nixpkgs> {}
-, source ? ./.
+, source ? null
 }:
 
+let
+  src = if source != null then source else
+    pkgs.lib.cleanSourceWith {
+      src = ./.;
+      filter = path: type:
+        let base = baseNameOf path; in
+        base != "build" &&
+        base != "result" &&
+        base != ".git";
+    };
+in
 pkgs.stdenv.mkDerivation {
   pname = "engine-sim";
   version = "0.1.12";
 
-  src = source;
+  inherit src;
 
   nativeBuildInputs = with pkgs; [
     cmake
