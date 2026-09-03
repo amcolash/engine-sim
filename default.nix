@@ -1,10 +1,12 @@
-{ pkgs ? import <nixpkgs> {} }:
+{ pkgs ? import <nixpkgs> {}
+, src ? builtins.fetchGit { url = ./.; submodules = true; }
+}:
 
 pkgs.stdenv.mkDerivation {
   pname = "engine-sim";
   version = "0.1.12";
 
-  src = ./.;
+  inherit src;
 
   nativeBuildInputs = with pkgs; [
     cmake
