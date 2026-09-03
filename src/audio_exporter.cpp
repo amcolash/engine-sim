@@ -390,31 +390,22 @@ bool AudioExporter::generateThrottleBlip(
 
     outSamples.clear();
 
-    // Ensure engine is running at idle
+    // Start from a stable idle with no dyno interference
     ensureEngineRunning(sim);
-
-    // 1. Record 0.20s of clean idle
-    runSimulationSteps(sim, 0.20, &outSamples);
-
-    // 2. Disengage dyno and open throttle to 1.0 (WOT) over 0.08s
     sim.m_dyno.m_enabled = false;
     sim.m_dyno.m_hold = false;
-    engine->getIgnitionModule()->m_enabled = true;
+
+    // 1. Record 0.30s of clean idle so the clip doesn't start abruptly
+    runSimulationSteps(sim, 0.30, &outSamples);
+
+    // 2. Snap throttle to WOT — engine accelerates freely under its own inertia
+    engine->setSpeedControl(1.0);
 
     const double frameDt = 0.01;
-    for (double t = 0.0; t < 0.08; t += frameDt) {
-        double f = t / 0.08;
-        engine->setSpeedControl(0.25 + 0.75 * f);
-        sim.startFrame(frameDt);
-        while (sim.simulateStep()) {}
-        sim.endFrame();
-        drainAudio(sim, &outSamples);
-    }
-
-    // 3. Hold WOT while engine roars from idle all the way up to max RPM (near redline)
-    engine->setSpeedControl(1.0);
     const double maxRevThreshold = engine->getRedline() * 0.90;
-    for (double t = 0.0; t < 0.40; t += frameDt) {
+
+    // Allow up to 4s for RPM to climb; break early once near redline
+    for (double t = 0.0; t < 4.0; t += frameDt) {
         sim.startFrame(frameDt);
         while (sim.simulateStep()) {}
         sim.endFrame();
@@ -422,21 +413,32 @@ bool AudioExporter::generateThrottleBlip(
         if (engine->getSpeed() >= maxRevThreshold) break;
     }
 
-    // 4. Snap throttle back to idle (0.25) and catch decel into 900 RPM idle governor
+    // 3. Snap throttle fully closed — engine decelerates naturally under its own
+    //    inertia and backpressure. No dyno, no governor.
+    engine->setSpeedControl(0.0);
+
+    // ~1200 RPM in rad/s as a coast-down target (slightly above true idle to avoid stall)
+    const double idleTarget = units::rpm(1200);
+
+    // 4. Record the natural coast-down back to idle (up to 5s; break once settled)
+    for (double t = 0.0; t < 5.0; t += frameDt) {
+        sim.startFrame(frameDt);
+        while (sim.simulateStep()) {}
+        sim.endFrame();
+        drainAudio(sim, &outSamples);
+        if (t > 0.5 && engine->getSpeed() <= idleTarget) break;
+    }
+
+    // 5. Short idle tail so the clip ends without an abrupt cutoff
     engine->setSpeedControl(0.25);
-    sim.m_dyno.m_enabled = true;
-    sim.m_dyno.m_hold = true;
-    sim.m_dyno.m_rotationSpeed = units::rpm(900);
-    sim.m_dyno.m_maxTorque = 1500.0;
+    runSimulationSteps(sim, 0.40, &outSamples);
 
-    // 5. Record deceleration and rich overrun rumble trailing back into steady idle (1.8s)
-    runSimulationSteps(sim, 1.80, &outSamples);
-
-    // Apply envelope fade for smooth clickless boundaries
-    WavWriter::applyEnvelopeFade(outSamples, 256, 4096);
+    // Tiny fade at edges only — keep the body untouched
+    WavWriter::applyEnvelopeFade(outSamples, 256, 2048);
 
     return !outSamples.empty();
 }
+
 
 bool AudioExporter::generateDecelCrackle(
     PistonEngineSimulator &sim,
