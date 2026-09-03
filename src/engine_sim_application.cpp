@@ -207,7 +207,7 @@ void EngineSimApplication::initialize(void *instance, ysContextObject::DeviceAPI
 
 void EngineSimApplication::initialize() {
     m_shaders.SetClearColor(ysColor::srgbiToLinear(0x34, 0x98, 0xdb));
-    m_assetManager.CompileInterchangeFile((m_assetPath + "/assets").c_str(), 1.0f, true);
+    m_assetManager.CompileInterchangeFile((m_assetPath + "/assets").c_str(), 1.0f, false);
     m_assetManager.LoadSceneFile((m_assetPath + "/assets").c_str(), true);
 
     m_textRenderer.SetEngine(&m_engine);
