@@ -13,3 +13,5 @@ compile_commands.json
 
 result
 *.csv
+assets/audio/
+test_export_output/

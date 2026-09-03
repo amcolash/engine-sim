@@ -12,6 +12,7 @@
 #include <filesystem>
 #include <thread>
 #include <chrono>
+#include <regex>
 
 using json = nlohmann::json;
 
@@ -66,13 +67,13 @@ bool AudioExporter::initializeAndStartEngine(PistonEngineSimulator &sim, Engine 
     // Start with starter motor engaged and ignition module enabled
     engine->getIgnitionModule()->m_enabled = true;
     sim.m_starterMotor.m_enabled = true;
-    sim.m_starterMotor.m_rotationSpeed = units::rpm(500);
-    sim.m_starterMotor.m_maxTorque = 2000.0;
-    engine->setThrottle(0.2);
+    sim.m_starterMotor.m_rotationSpeed = units::rpm(600);
+    sim.m_starterMotor.m_maxTorque = 5000.0;
+    engine->setThrottle(0.35);
 
     // Crank until engine starts and speed exceeds 600 RPM
     const double frameDt = 0.02;
-    for (double t = 0.0; t < 3.0; t += frameDt) {
+    for (double t = 0.0; t < 2.0; t += frameDt) {
         sim.startFrame(frameDt);
         while (sim.simulateStep()) {
             if (engine->getSpeed() > units::rpm(600)) {
@@ -81,13 +82,12 @@ bool AudioExporter::initializeAndStartEngine(PistonEngineSimulator &sim, Engine 
         }
         sim.endFrame();
         drainAudio(sim, nullptr);
-        if (engine->getSpeed() > units::rpm(600)) break;
     }
     sim.m_starterMotor.m_enabled = false;
 
-    // Settle at idle for 0.8 seconds
+    // Settle at idle for 1.0 second
     engine->setThrottle(0.0);
-    runSimulationSteps(sim, 0.8, nullptr);
+    runSimulationSteps(sim, 1.0, nullptr);
 
     return true;
 }
@@ -107,31 +107,31 @@ bool AudioExporter::captureSteadyRpmLoop(
     sim.m_dyno.m_enabled = true;
     sim.m_dyno.m_hold = true;
     sim.m_dyno.m_rotationSpeed = units::rpm(targetRpm);
-    sim.m_dyno.m_maxTorque = 10000.0;
-    sim.m_dyno.m_ks = 1000.0;
-    sim.m_dyno.m_kd = 10.0;
+    sim.m_dyno.m_maxTorque = 20000.0;
+    sim.m_dyno.m_ks = 2000.0;
+    sim.m_dyno.m_kd = 20.0;
 
-    // Set moderate load throttle
-    double throttle = std::clamp(0.15 + 0.55 * (static_cast<double>(targetRpm) / 8000.0), 0.15, 0.80);
+    // Set sufficient throttle to keep cylinders firing against dyno load
+    double throttle = std::clamp(0.25 + 0.60 * (static_cast<double>(targetRpm) / 8000.0), 0.25, 0.90);
     engine->setThrottle(throttle);
 
-    // Warm up & let dyno lock speed (0.8s)
-    runSimulationSteps(sim, 0.8, nullptr);
+    // Warm up & let dyno lock speed (1.0s)
+    runSimulationSteps(sim, 1.0, nullptr);
     drainAudio(sim, nullptr); // Discard warmup audio
 
     // Track crankshaft cycle angle (0 to 4*pi for 4-stroke 720 deg)
     Crankshaft *crank = engine->getOutputCrankshaft();
-    const double fourPi = 4.0 * constants::pi;
+    const double wrapThreshold = 2.0 * constants::pi;
 
-    // 1. Wait for angle to wrap around 0 (Cylinder 1 Top Dead Center)
+    // 1. Wait for angle to wrap around 0 / 4*pi boundary
     double lastAngle = crank->getCycleAngle();
     bool zeroCrossed = false;
     const double frameDt = 0.005; // 5ms high-precision frame
-    for (int frame = 0; frame < 400; ++frame) {
+    for (int frame = 0; frame < 500; ++frame) {
         sim.startFrame(frameDt);
         while (sim.simulateStep()) {
             double angle = crank->getCycleAngle();
-            if (lastAngle > (fourPi - 1.5) && angle < 1.5) {
+            if (std::abs(angle - lastAngle) > wrapThreshold) {
                 zeroCrossed = true;
                 break;
             }
@@ -148,14 +148,14 @@ bool AudioExporter::captureSteadyRpmLoop(
     int completedCycles = 0;
     lastAngle = crank->getCycleAngle();
 
-    for (int frame = 0; frame < 2000; ++frame) {
+    for (int frame = 0; frame < 3000; ++frame) {
         sim.startFrame(frameDt);
         bool finished = false;
         while (sim.simulateStep()) {
             double angle = crank->getCycleAngle();
 
             // Check cycle boundary crossing
-            if (lastAngle > (fourPi - 1.5) && angle < 1.5) {
+            if (std::abs(angle - lastAngle) > wrapThreshold) {
                 completedCycles++;
                 if (completedCycles >= cyclesToCapture) {
                     finished = true;
@@ -434,12 +434,51 @@ bool AudioExporter::exportVehicle(
     // Add parent directory of script to piranha paths
     piranhaPaths.push_back(std::filesystem::absolute(resolvedScriptPath.parent_path()).string());
 
-    std::string entryScriptContent = 
-        "import \"engine_sim.mr\"\n"
-        "import \"themes/default.mr\"\n"
-        "import \"" + resolvedScriptPath.filename().string() + "\"\n\n"
-        "use_default_theme()\n"
-        "main()\n";
+    // Read script content to detect defined public nodes
+    std::string scriptContent;
+    {
+        std::ifstream sf(resolvedScriptPath);
+        if (sf.is_open()) {
+            std::stringstream ss;
+            ss << sf.rdbuf();
+            scriptContent = ss.str();
+        }
+    }
+
+    std::string entryScriptContent;
+    std::string detectedNode;
+
+    // Check if script already defines 'public node main'
+    bool hasMain = (scriptContent.find("public node main") != std::string::npos ||
+                    scriptContent.find("node main") != std::string::npos);
+
+    if (hasMain) {
+        entryScriptContent = 
+            "import \"engine_sim.mr\"\n"
+            "import \"themes/default.mr\"\n"
+            "import \"" + resolvedScriptPath.filename().string() + "\"\n\n"
+            "use_default_theme()\n"
+            "main()\n";
+    } else {
+        // Look for public node <name>
+        std::regex pubNodeRegex(R"(public\s+node\s+([a-zA-Z0-9_]+))");
+        std::smatch match;
+        if (std::regex_search(scriptContent, match, pubNodeRegex) && match.size() > 1) {
+            detectedNode = match[1].str();
+        } else {
+            detectedNode = resolvedScriptPath.stem().string();
+        }
+
+        entryScriptContent = 
+            "import \"engine_sim.mr\"\n"
+            "import \"themes/default.mr\"\n"
+            "import \"" + resolvedScriptPath.filename().string() + "\"\n\n"
+            "use_default_theme()\n"
+            "public node main {\n"
+            "    set_engine(" + detectedNode + "())\n"
+            "}\n"
+            "main()\n";
+    }
 
     std::string tempEntryPath = "_temp_entry_" + vehicleConfig.id + ".mr";
     {
@@ -447,30 +486,30 @@ bool AudioExporter::exportVehicle(
         tempFile << entryScriptContent;
     }
 
-    std::cout << "Compiling entry script: " << tempEntryPath << std::endl;
     std::stringstream errorLog;
     es_script::Compiler compiler;
     compiler.initialize(piranhaPaths);
 
     bool compiled = compiler.compile(tempEntryPath, errorLog);
-    std::filesystem::remove(tempEntryPath);
 
-    std::cout << "Compile result: " << compiled << std::endl;
     if (!compiled) {
         std::cout << "Wrapper compilation failed. Error log:\n" << errorLog.str() << std::endl;
+        compiler.destroy();
+        compiler.initialize(piranhaPaths);
         std::stringstream fallbackLog;
         compiled = compiler.compile(resolvedScriptPath.string(), fallbackLog);
         std::cout << "Fallback direct compile result: " << compiled << std::endl;
         if (!compiled) {
             std::cerr << "Error: Failed to compile engine script: " << vehicleConfig.scriptPath << std::endl;
             std::cerr << fallbackLog.str() << std::endl;
+            std::filesystem::remove(tempEntryPath);
             compiler.destroy();
             return false;
         }
     }
 
-    std::cout << "Executing script..." << std::endl;
     es_script::Compiler::Output compiledOutput = compiler.execute();
+    std::filesystem::remove(tempEntryPath);
     Engine *engine = compiledOutput.engine;
     Vehicle *vehicle = compiledOutput.vehicle;
     Transmission *transmission = compiledOutput.transmission;

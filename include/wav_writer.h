@@ -42,3 +42,4 @@ public:
 };
 
 #endif /* ATG_ENGINE_SIM_WAV_WRITER_H */
+
