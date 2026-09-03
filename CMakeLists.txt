@@ -51,9 +51,60 @@ if (BUILD_TESTS)
     set_property(TARGET gtest_main PROPERTY FOLDER "gtest")
 endif()
 
+if (PIRANHA_ENABLED)
+    add_library(engine-sim-script-interpreter STATIC
+        # Source files
+        scripting/src/channel_types.cpp
+        scripting/src/compiler.cpp
+        scripting/src/engine_context.cpp
+        scripting/src/language_rules.cpp
+
+        # Include files
+        scripting/include/actions.h
+        scripting/include/camshaft_node.h
+        scripting/include/channel_types.h
+        scripting/include/compiler.h
+        scripting/include/connecting_rod_node.h
+        scripting/include/crankshaft_node.h
+        scripting/include/cylinder_bank_node.h
+        scripting/include/cylinder_head_node.h
+        scripting/include/engine_context.h
+        scripting/include/engine_node.h
+        scripting/include/engine_sim.h
+        scripting/include/exhaust_system_node.h
+        scripting/include/intake_node.h
+        scripting/include/function_node.h
+        scripting/include/ignition_module_node.h
+        scripting/include/ignition_wire_node.h
+        scripting/include/impulse_response_node.h
+        scripting/include/intake_node.h
+        scripting/include/language_rules.h
+        scripting/include/node.h
+        scripting/include/object_reference_node.h
+        scripting/include/object_reference_node_output.h
+        scripting/include/piranha.h
+        scripting/include/piston_node.h
+        scripting/include/rod_journal_node.h
+        scripting/include/standard_valvetrain_node.h
+        scripting/include/transmission_node.h
+        scripting/include/valvetrain_node.h
+        scripting/include/vtec_valvetrain_node.h
+		scripting/include/vehicle_node.h
+    )
+
+    target_include_directories(engine-sim-script-interpreter
+        PUBLIC dependencies/submodules
+        PUBLIC scripting/include)
+
+    target_link_libraries(engine-sim-script-interpreter
+        csv-io
+        piranha)
+endif (PIRANHA_ENABLED)
+
 add_library(engine-sim STATIC
     # Source files
     src/audio_buffer.cpp
+    src/audio_exporter.cpp
     src/camshaft.cpp
     src/crankshaft.cpp
     src/combustion_chamber.cpp
@@ -99,6 +150,7 @@ add_library(engine-sim STATIC
 
     # Include files
     include/audio_buffer.h
+    include/audio_exporter.h
     include/application_settings.h
     include/export_recipe.h
     include/camshaft.h
@@ -149,58 +201,17 @@ target_link_libraries(engine-sim
     csv-io
     delta-basic)
 
+if (PIRANHA_ENABLED)
+    target_link_libraries(engine-sim
+        engine-sim-script-interpreter)
+endif()
+
 target_include_directories(engine-sim
     PUBLIC dependencies/submodules
-    PUBLIC dependencies/libraries/json)
-
-if (PIRANHA_ENABLED)
-    add_library(engine-sim-script-interpreter STATIC
-        # Source files
-        scripting/src/channel_types.cpp
-        scripting/src/compiler.cpp
-        scripting/src/engine_context.cpp
-        scripting/src/language_rules.cpp
-
-        # Include files
-        scripting/include/actions.h
-        scripting/include/camshaft_node.h
-        scripting/include/channel_types.h
-        scripting/include/compiler.h
-        scripting/include/connecting_rod_node.h
-        scripting/include/crankshaft_node.h
-        scripting/include/cylinder_bank_node.h
-        scripting/include/cylinder_head_node.h
-        scripting/include/engine_context.h
-        scripting/include/engine_node.h
-        scripting/include/engine_sim.h
-        scripting/include/exhaust_system_node.h
-        scripting/include/intake_node.h
-        scripting/include/function_node.h
-        scripting/include/ignition_module_node.h
-        scripting/include/ignition_wire_node.h
-        scripting/include/impulse_response_node.h
-        scripting/include/intake_node.h
-        scripting/include/language_rules.h
-        scripting/include/node.h
-        scripting/include/object_reference_node.h
-        scripting/include/object_reference_node_output.h
-        scripting/include/piranha.h
-        scripting/include/piston_node.h
-        scripting/include/rod_journal_node.h
-        scripting/include/standard_valvetrain_node.h
-        scripting/include/transmission_node.h
-        scripting/include/valvetrain_node.h
-        scripting/include/vtec_valvetrain_node.h
-		scripting/include/vehicle_node.h
-    )
-
-    target_include_directories(engine-sim-script-interpreter
-        PUBLIC dependencies/submodules)
-
-    target_link_libraries(engine-sim-script-interpreter
-        csv-io
-        piranha)
-endif (PIRANHA_ENABLED)
+    PUBLIC dependencies/submodules/delta-studio/include
+    PUBLIC dependencies/submodules/delta-studio/engines/basic/include
+    PUBLIC dependencies/libraries/json
+    PUBLIC scripting/include)
 
 add_executable(engine-sim-app WIN32
     # Source files
@@ -303,6 +314,8 @@ endif (DISCORD_ENABLED)
 
 target_link_libraries(engine-sim-app
     engine-sim
+    engine-sim-script-interpreter
+    engine-sim
 )
 
 # ========================================================
@@ -332,10 +345,13 @@ if (BUILD_TESTS)
         test/synthesizer_tests.cpp
         test/wav_writer_test.cpp
         test/export_recipe_test.cpp
+        test/audio_exporter_test.cpp
     )
 
     target_link_libraries(engine-sim-test
         gtest_main
+        engine-sim
+        engine-sim-script-interpreter
         engine-sim
     )
 

@@ -1,4 +1,5 @@
 #include "../include/simulator.h"
+#include <algorithm>
 
 Simulator::Simulator() {
     m_engine = nullptr;
@@ -122,8 +123,10 @@ bool Simulator::simulateStep() {
         shaft->m_body.theta = outputShaft->m_body.theta;
     }
 
-    const int index =
-        static_cast<int>(std::floor((DynoTorqueSamples - 1) * outputShaft->getCycleAngle() / (4 * constants::pi)));
+    const int index = std::clamp(
+        static_cast<int>(std::floor((DynoTorqueSamples - 1) * outputShaft->getCycleAngle() / (4 * constants::pi))),
+        0,
+        DynoTorqueSamples - 1);
     const int step = m_engine->isSpinningCw() ? 1 : -1;
     m_dynoTorqueSamples[index] = m_dyno.getTorque();
 
