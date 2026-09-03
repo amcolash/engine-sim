@@ -67,8 +67,8 @@ bool AudioExporter::initializeAndStartEngine(PistonEngineSimulator &sim, Engine 
     // Start with starter motor engaged and ignition module enabled
     engine->getIgnitionModule()->m_enabled = true;
     sim.m_starterMotor.m_enabled = true;
-    sim.m_starterMotor.m_rotationSpeed = units::rpm(600);
-    sim.m_starterMotor.m_maxTorque = 5000.0;
+    sim.m_starterMotor.m_rotationSpeed = -engine->getStarterSpeed();
+    sim.m_starterMotor.m_maxTorque = engine->getStarterTorque();
     engine->setSpeedControl(0.35);
 
     // Crank until engine starts and speed exceeds 600 RPM
@@ -208,12 +208,12 @@ void AudioExporter::ensureEngineRunning(PistonEngineSimulator &sim) {
     // Enable ignition
     engine->getIgnitionModule()->m_enabled = true;
 
-    // If engine is not running or running too slowly, crank it
+    // If engine is not running or running too slowly, crank it forward
     if (engine->getSpeed() < units::rpm(600)) {
         sim.m_starterMotor.m_enabled = true;
-        sim.m_starterMotor.m_rotationSpeed = units::rpm(750);
-        sim.m_starterMotor.m_maxTorque = 5000.0;
-        engine->setSpeedControl(0.20);
+        sim.m_starterMotor.m_rotationSpeed = -engine->getStarterSpeed();
+        sim.m_starterMotor.m_maxTorque = engine->getStarterTorque();
+        engine->setSpeedControl(0.25);
 
         const double frameDt = 0.02;
         for (double t = 0.0; t < 0.8; t += frameDt) {
@@ -235,12 +235,12 @@ void AudioExporter::ensureEngineRunning(PistonEngineSimulator &sim) {
         drainAudio(sim, nullptr);
     }
 
-    // Safety fallback: if engine RPM fell below 500, crank once more with slight idle trim
+    // Safety fallback: if engine RPM fell below 500, crank once more
     if (engine->getSpeed() < units::rpm(500)) {
         sim.m_starterMotor.m_enabled = true;
-        sim.m_starterMotor.m_rotationSpeed = units::rpm(800);
-        sim.m_starterMotor.m_maxTorque = 5000.0;
-        engine->setSpeedControl(0.25);
+        sim.m_starterMotor.m_rotationSpeed = -engine->getStarterSpeed();
+        sim.m_starterMotor.m_maxTorque = engine->getStarterTorque();
+        engine->setSpeedControl(0.30);
         for (double t = 0.0; t < 0.8; t += frameDt) {
             sim.startFrame(frameDt);
             while (sim.simulateStep()) {}
@@ -248,7 +248,7 @@ void AudioExporter::ensureEngineRunning(PistonEngineSimulator &sim) {
             drainAudio(sim, nullptr);
         }
         sim.m_starterMotor.m_enabled = false;
-        engine->setSpeedControl(0.05);
+        engine->setSpeedControl(0.0);
         for (double t = 0.0; t < 0.5; t += frameDt) {
             sim.startFrame(frameDt);
             while (sim.simulateStep()) {}
@@ -292,13 +292,14 @@ bool AudioExporter::generateEngineStart(
 
     // 2. Engage starter motor WITHOUT ignition (ramping smoothly from silence)
     sim.m_starterMotor.m_enabled = true;
-    sim.m_starterMotor.m_rotationSpeed = units::rpm(480);
+    sim.m_starterMotor.m_rotationSpeed = -engine->getStarterSpeed();
     sim.m_starterMotor.m_maxTorque = 0.0;
     engine->setSpeedControl(0.35); // Startup flare throttle
 
     const double crankDt = 0.01;
+    const double maxStarterTorque = engine->getStarterTorque();
     for (double t = 0.0; t < 0.45; t += crankDt) {
-        double torqueRamp = std::min(4500.0, 4500.0 * (t / 0.15));
+        double torqueRamp = std::min(maxStarterTorque, maxStarterTorque * (t / 0.15));
         sim.m_starterMotor.m_maxTorque = torqueRamp;
         sim.startFrame(crankDt);
         while (sim.simulateStep()) {}
@@ -419,7 +420,7 @@ bool AudioExporter::generateThrottleBlip(
     ensureEngineRunning(sim);
 
     // 2. Record 0.5s of stable natural idle
-    engine->setSpeedControl(0.0);
+    engine->setSpeedControl(0.01);
     runSimulationSteps(sim, 0.50, &outSamples);
 
     // 3. Briefly tap R (snap to 1.0) — engine revs up freely under its own power
