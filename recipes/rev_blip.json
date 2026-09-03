@@ -1,0 +1,30 @@
+{
+  "global_settings": {
+    "output_dir": "assets/audio/engines",
+    "sample_rate": 44100,
+    "bits_per_sample": 16,
+    "normalize_peak_dbfs": -1.0,
+    "embed_loop_markers": true,
+    "default_cycles_per_loop": 6,
+    "default_min_loop_duration_sec": 1.0
+  },
+  "search_paths": ["assets", "assets/engines", "part-library"],
+  "vehicles": [
+    {
+      "id": "trench",
+      "display_name": "Trench Classic American V8",
+      "script_path": "assets/engines/atg-video-2/07_gm_ls.mr",
+      "export_profile": {
+        "rpm_min": 1000,
+        "rpm_max": 1000,
+        "rpm_step": 500,
+        "cycles_per_loop": 6,
+        "export_steady_rpm": false,
+        "export_starter": false,
+        "export_rev_limiter": false,
+        "export_rev_blip": true,
+        "export_decel_crackle": false
+      }
+    }
+  ]
+}

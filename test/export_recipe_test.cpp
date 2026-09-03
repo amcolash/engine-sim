@@ -12,16 +12,16 @@ TEST(ExportRecipeTests, ParseGameVehiclesRecipe) {
     EXPECT_TRUE(recipe.globalSettings.embedLoopMarkers);
 
     EXPECT_EQ(recipe.vehicles.size(), 10);
-    EXPECT_EQ(recipe.vehicles[0].id, "grizzly");
-    EXPECT_EQ(recipe.vehicles[0].exportProfile.rpmMin, 1000);
-    EXPECT_EQ(recipe.vehicles[0].exportProfile.rpmMax, 5000);
+    EXPECT_EQ(recipe.vehicles[0].id, "aileron");
+    EXPECT_EQ(recipe.vehicles[0].exportProfile.rpmMin, 900);
+    EXPECT_EQ(recipe.vehicles[0].exportProfile.rpmMax, 6800);
     EXPECT_EQ(recipe.vehicles[0].exportProfile.rpmStep, 500);
-    EXPECT_TRUE(recipe.vehicles[0].exportProfile.exportStarter);
+    EXPECT_TRUE(recipe.vehicles[0].exportProfile.exportRevBlip);
     EXPECT_TRUE(recipe.vehicles[0].exportProfile.exportRevLimiter);
-    EXPECT_EQ(recipe.vehicles[6].id, "phantom");
-    EXPECT_EQ(recipe.vehicles[7].id, "boxer");
-    EXPECT_EQ(recipe.vehicles[8].id, "quattro");
-    EXPECT_EQ(recipe.vehicles[9].id, "corsa");
+    EXPECT_EQ(recipe.vehicles[6].id, "mantis");
+    EXPECT_EQ(recipe.vehicles[7].id, "pulse");
+    EXPECT_EQ(recipe.vehicles[8].id, "glacier");
+    EXPECT_EQ(recipe.vehicles[9].id, "chariot");
 }
 
 TEST(ExportRecipeTests, CreateDefaultSingleEngine) {
