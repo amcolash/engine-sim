@@ -104,6 +104,70 @@
         "export_rev_blip": true,
         "export_decel_crackle": true
       }
+    },
+    {
+      "id": "phantom",
+      "display_name": "Phantom Twin-Turbo I6 Tuner",
+      "script_path": "assets/engines/atg-video-2/03_2jz.mr",
+      "export_profile": {
+        "rpm_min": 1000,
+        "rpm_max": 6500,
+        "rpm_step": 500,
+        "cycles_per_loop": 6,
+        "export_steady_rpm": true,
+        "export_starter": true,
+        "export_rev_limiter": true,
+        "export_rev_blip": true,
+        "export_decel_crackle": true
+      }
+    },
+    {
+      "id": "boxer",
+      "display_name": "Rumble Turbo Boxer-4 Rally",
+      "script_path": "assets/engines/atg-video-1/06_subaru_ej25.mr",
+      "export_profile": {
+        "rpm_min": 1000,
+        "rpm_max": 6500,
+        "rpm_step": 500,
+        "cycles_per_loop": 6,
+        "export_steady_rpm": true,
+        "export_starter": true,
+        "export_rev_limiter": true,
+        "export_rev_blip": true,
+        "export_decel_crackle": true
+      }
+    },
+    {
+      "id": "quattro",
+      "display_name": "Apex Turbo Inline-5 Coupe",
+      "script_path": "assets/engines/atg-video-1/07_audi_i5.mr",
+      "export_profile": {
+        "rpm_min": 1000,
+        "rpm_max": 6500,
+        "rpm_step": 500,
+        "cycles_per_loop": 6,
+        "export_steady_rpm": true,
+        "export_starter": true,
+        "export_rev_limiter": true,
+        "export_rev_blip": true,
+        "export_decel_crackle": true
+      }
+    },
+    {
+      "id": "corsa",
+      "display_name": "Corsa Flat-Plane V8 Exotic",
+      "script_path": "assets/engines/atg-video-2/08_ferrari_f136_v8.mr",
+      "export_profile": {
+        "rpm_min": 1000,
+        "rpm_max": 8500,
+        "rpm_step": 500,
+        "cycles_per_loop": 6,
+        "export_steady_rpm": true,
+        "export_starter": true,
+        "export_rev_limiter": true,
+        "export_rev_blip": true,
+        "export_decel_crackle": true
+      }
     }
   ]
 }
