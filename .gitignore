@@ -12,3 +12,4 @@ compile_commands.json
 *.blend1
 
 result
+*.csv
