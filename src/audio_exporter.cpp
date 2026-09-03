@@ -282,7 +282,7 @@ bool AudioExporter::generateEngineStart(
     runSimulationSteps(sim, 0.8, nullptr);
     drainAudio(sim, nullptr);
 
-    // Let any synthesizer convolution impulse response ringout settle into absolute silence
+    // Let any synthesizer convolution impulse response ringout settle into silence
     for (int frame = 0; frame < 20; ++frame) {
         sim.startFrame(0.02);
         while (sim.simulateStep()) {}
@@ -290,29 +290,16 @@ bool AudioExporter::generateEngineStart(
         drainAudio(sim, nullptr);
     }
 
-    // 2. Engage starter motor WITHOUT ignition (ramping smoothly from silence)
+    // 2. Turn on ignition and engage starter motor (forward direction)
+    engine->getIgnitionModule()->m_enabled = true;
     sim.m_starterMotor.m_enabled = true;
     sim.m_starterMotor.m_rotationSpeed = -engine->getStarterSpeed();
-    sim.m_starterMotor.m_maxTorque = 0.0;
-    engine->setSpeedControl(0.35); // Startup flare throttle
+    sim.m_starterMotor.m_maxTorque = engine->getStarterTorque();
+    engine->setSpeedControl(0.20);
 
-    const double crankDt = 0.01;
-    const double maxStarterTorque = engine->getStarterTorque();
-    for (double t = 0.0; t < 0.45; t += crankDt) {
-        double torqueRamp = std::min(maxStarterTorque, maxStarterTorque * (t / 0.15));
-        sim.m_starterMotor.m_maxTorque = torqueRamp;
-        sim.startFrame(crankDt);
-        while (sim.simulateStep()) {}
-        sim.endFrame();
-        drainAudio(sim, &outSamples);
-    }
-
-    // 3. Enable spark while starter is turning
-    engine->getIgnitionModule()->m_enabled = true;
-
-    // Simulate ignition catch and free-rev flare to ~2000 RPM (no dyno)
-    const double frameDt = 0.02;
-    for (double t = 0.0; t < 0.60; t += frameDt) {
+    // 3. Crank until engine catches and stabilizes above starter speed
+    const double frameDt = 0.01;
+    for (double t = 0.0; t < 1.5; t += frameDt) {
         sim.startFrame(frameDt);
         while (sim.simulateStep()) {
             if (engine->getSpeed() > units::rpm(750)) {
@@ -321,19 +308,18 @@ bool AudioExporter::generateEngineStart(
         }
         sim.endFrame();
         drainAudio(sim, &outSamples);
+        if (!sim.m_starterMotor.m_enabled && t > 0.4) break;
     }
     sim.m_starterMotor.m_enabled = false;
 
-    // 4. Catch the deceleration smoothly into 900 RPM idle governor for 1.8s
-    sim.m_dyno.m_enabled = true;
-    sim.m_dyno.m_hold = true;
-    sim.m_dyno.m_rotationSpeed = units::rpm(900);
-    sim.m_dyno.m_maxTorque = 1500.0;
-    engine->setSpeedControl(0.25);
-    runSimulationSteps(sim, 1.80, &outSamples);
+    // 4. Settle at natural idle for 0.5s (no dyno)
+    engine->setSpeedControl(0.0);
+    runSimulationSteps(sim, 0.50, &outSamples);
 
-    // Apply envelope fade to ensure 100% clickless start from silence and smooth tail
-    WavWriter::applyEnvelopeFade(outSamples, 256, 4096);
+    // 5. 100ms fade-in, 200ms fade-out
+    const size_t fadeInSamples = static_cast<size_t>(0.10 * 44100);
+    const size_t fadeOutSamples = static_cast<size_t>(0.20 * 44100);
+    WavWriter::applyEnvelopeFade(outSamples, fadeInSamples, fadeOutSamples);
 
     return !outSamples.empty();
 }
@@ -422,9 +408,9 @@ bool AudioExporter::generateThrottleBlip(
     runSimulationSteps(sim, 0.5, nullptr);
     drainAudio(sim, nullptr);
 
-    // 2. Record 0.5s of quiet, stable natural idle lead-in
+    // 2. Record 0.15s of quiet, stable natural idle lead-in
     engine->setSpeedControl(0.0);
-    runSimulationSteps(sim, 0.50, &outSamples);
+    runSimulationSteps(sim, 0.15, &outSamples);
 
     // 3. Briefly tap R (snap to 1.0) — engine revs up freely under its own power
     engine->setSpeedControl(1.0);
@@ -455,10 +441,10 @@ bool AudioExporter::generateThrottleBlip(
     }
 
     // 5. Short quiet idle tail to settle smoothly
-    runSimulationSteps(sim, 0.35, &outSamples);
+    runSimulationSteps(sim, 0.25, &outSamples);
 
-    // Apply smooth 200ms cosine fade-in and 200ms fade-out
-    WavWriter::applyEnvelopeFade(outSamples, 8820, 8820);
+    // Quick 50ms fade-in (~2200 samples) and 150ms fade-out (~6600 samples)
+    WavWriter::applyEnvelopeFade(outSamples, 22050, 22050);
 
     return !outSamples.empty();
 }
@@ -497,7 +483,7 @@ bool AudioExporter::generateDecelCrackle(
     runSimulationSteps(sim, durationSec, &outSamples);
 
     // Apply envelope fade for smooth boundary transitions
-    WavWriter::applyEnvelopeFade(outSamples, 256, 4096);
+    WavWriter::applyEnvelopeFade(outSamples, 8820, 13230);
 
     return !outSamples.empty();
 }
