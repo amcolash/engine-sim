@@ -94,6 +94,7 @@ add_library(engine-sim STATIC
     src/vehicle.cpp
     src/vehicle_drag_constraint.cpp
     src/vtec_valvetrain.cpp
+    src/wav_writer.cpp
 
     # Include files
     include/audio_buffer.h
@@ -326,6 +327,7 @@ if (BUILD_TESTS)
         test/gas_system_tests.cpp
         test/function_test.cpp
         test/synthesizer_tests.cpp
+        test/wav_writer_test.cpp
     )
 
     target_link_libraries(engine-sim-test
