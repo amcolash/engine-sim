@@ -201,7 +201,11 @@ void AudioExporter::ensureEngineRunning(PistonEngineSimulator &sim) {
         sim.getTransmission()->setClutchPressure(0.0);
     }
 
-    // If engine is stopped or stalled, start it with starter motor
+    // Disable dyno — run freely, just like the interactive session
+    sim.m_dyno.m_enabled = false;
+    sim.m_dyno.m_hold = false;
+
+    // If engine is stopped, crank it with the starter motor
     if (engine->getSpeed() < units::rpm(500)) {
         engine->getIgnitionModule()->m_enabled = true;
         sim.m_starterMotor.m_enabled = true;
@@ -210,7 +214,7 @@ void AudioExporter::ensureEngineRunning(PistonEngineSimulator &sim) {
         engine->setSpeedControl(0.35);
 
         const double frameDt = 0.02;
-        for (double t = 0.0; t < 1.5; t += frameDt) {
+        for (double t = 0.0; t < 2.0; t += frameDt) {
             sim.startFrame(frameDt);
             while (sim.simulateStep()) {
                 if (engine->getSpeed() > units::rpm(700)) {
@@ -223,17 +227,13 @@ void AudioExporter::ensureEngineRunning(PistonEngineSimulator &sim) {
         sim.m_starterMotor.m_enabled = false;
     }
 
-    // Stabilize at idle using dynamometer at 900 RPM
-    sim.m_dyno.m_enabled = true;
-    sim.m_dyno.m_hold = true;
-    sim.m_dyno.m_rotationSpeed = units::rpm(900);
-    sim.m_dyno.m_maxTorque = 2000.0;
+    // Drop to natural idle and let it stabilize — no dyno, just like interactive mode
     engine->getIgnitionModule()->m_enabled = true;
     engine->setSpeedControl(0.0);
-
-    runSimulationSteps(sim, 0.6, nullptr);
+    runSimulationSteps(sim, 1.5, nullptr);
     drainAudio(sim, nullptr);
 }
+
 
 bool AudioExporter::generateEngineStart(
     PistonEngineSimulator &sim,
@@ -390,30 +390,18 @@ bool AudioExporter::generateThrottleBlip(
 
     outSamples.clear();
 
-    // Stabilize engine at idle using the dyno
+    // ensureEngineRunning now leaves the engine at natural idle (no dyno)
     ensureEngineRunning(sim);
 
-    // Keep the dyno engaged during the idle lead-in so the engine can't stall.
-    // The idle sound recorded with a light dyno hold is indistinguishable from
-    // natural idle — the dyno just prevents a surprise stall before recording starts.
-    engine->setSpeedControl(0.25);
-    sim.m_dyno.m_enabled = true;
-    sim.m_dyno.m_hold = true;
-    sim.m_dyno.m_rotationSpeed = units::rpm(950);
-    sim.m_dyno.m_maxTorque = 1000.0;
-
-    // 1. Record 0.5s of stable idle lead-in (dyno-stabilized)
+    // 1. Record 0.5s of stable idle
     runSimulationSteps(sim, 0.5, &outSamples);
 
-    // 2. Cut the dyno and snap to WOT in the same frame — engine is now free
-    sim.m_dyno.m_enabled = false;
-    sim.m_dyno.m_hold = false;
+    // 2. Snap to WOT — free-rev under its own inertia
     engine->setSpeedControl(1.0);
 
     const double frameDt = 0.01;
     const double maxRevThreshold = engine->getRedline() * 0.90;
 
-    // Rev freely to ~90% redline (up to 5s, breaks early)
     for (double t = 0.0; t < 5.0; t += frameDt) {
         sim.startFrame(frameDt);
         while (sim.simulateStep()) {}
@@ -422,13 +410,12 @@ bool AudioExporter::generateThrottleBlip(
         if (engine->getSpeed() >= maxRevThreshold) break;
     }
 
-    // 3. Lift off — use a small throttle floor to prevent stall while still
-    //    letting inertia carry the RPM down naturally
-    engine->setSpeedControl(0.18);
+    // 3. Release throttle back to idle position — natural coast-down
+    engine->setSpeedControl(0.0);
 
-    const double idleTarget = units::rpm(1300);
+    const double idleTarget = units::rpm(1200);
 
-    // 4. Record natural coast-down back to idle (up to 5s; break once settled)
+    // 4. Record coast-down until settled at idle
     for (double t = 0.0; t < 5.0; t += frameDt) {
         sim.startFrame(frameDt);
         while (sim.simulateStep()) {}
@@ -437,8 +424,8 @@ bool AudioExporter::generateThrottleBlip(
         if (t > 0.5 && engine->getSpeed() <= idleTarget) break;
     }
 
-    // 5. Short idle tail so the clip ends cleanly
-    runSimulationSteps(sim, 0.30, &outSamples);
+    // 5. Short idle tail
+    runSimulationSteps(sim, 0.3, &outSamples);
 
     WavWriter::applyEnvelopeFade(outSamples, 256, 2048);
 
