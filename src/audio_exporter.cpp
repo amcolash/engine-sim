@@ -390,28 +390,30 @@ bool AudioExporter::generateThrottleBlip(
 
     outSamples.clear();
 
-    // Stabilize at idle using the dyno first, then hand off to free-run
+    // Stabilize engine at idle using the dyno
     ensureEngineRunning(sim);
 
-    // Bring throttle to a self-sustaining idle level, then release the dyno
-    // so the engine holds idle on its own before we start recording
-    engine->setSpeedControl(0.20);
-    sim.m_dyno.m_enabled = false;
-    sim.m_dyno.m_hold = false;
-    // Let it settle for 0.8s un-clamped to confirm it can hold idle freely
-    runSimulationSteps(sim, 0.8, nullptr);
-    drainAudio(sim, nullptr);
+    // Keep the dyno engaged during the idle lead-in so the engine can't stall.
+    // The idle sound recorded with a light dyno hold is indistinguishable from
+    // natural idle — the dyno just prevents a surprise stall before recording starts.
+    engine->setSpeedControl(0.25);
+    sim.m_dyno.m_enabled = true;
+    sim.m_dyno.m_hold = true;
+    sim.m_dyno.m_rotationSpeed = units::rpm(950);
+    sim.m_dyno.m_maxTorque = 1000.0;
 
-    // 1. Record 0.5s of stable idle lead-in
+    // 1. Record 0.5s of stable idle lead-in (dyno-stabilized)
     runSimulationSteps(sim, 0.5, &outSamples);
 
-    // 2. Snap throttle to WOT — engine accelerates freely under its own inertia
+    // 2. Cut the dyno and snap to WOT in the same frame — engine is now free
+    sim.m_dyno.m_enabled = false;
+    sim.m_dyno.m_hold = false;
     engine->setSpeedControl(1.0);
 
     const double frameDt = 0.01;
     const double maxRevThreshold = engine->getRedline() * 0.90;
 
-    // Allow up to 5s for RPM to climb; break early once near redline
+    // Rev freely to ~90% redline (up to 5s, breaks early)
     for (double t = 0.0; t < 5.0; t += frameDt) {
         sim.startFrame(frameDt);
         while (sim.simulateStep()) {}
@@ -420,14 +422,13 @@ bool AudioExporter::generateThrottleBlip(
         if (engine->getSpeed() >= maxRevThreshold) break;
     }
 
-    // 3. Lift off — drop to a minimum idle throttle floor (not zero) to prevent
-    //    stall while still letting the engine decelerate naturally under inertia
-    const double idleFloor = 0.18;
-    engine->setSpeedControl(idleFloor);
+    // 3. Lift off — use a small throttle floor to prevent stall while still
+    //    letting inertia carry the RPM down naturally
+    engine->setSpeedControl(0.18);
 
-    const double idleTarget = units::rpm(1300); // settle target
+    const double idleTarget = units::rpm(1300);
 
-    // 4. Record the natural coast-down back to idle (up to 5s; break once settled)
+    // 4. Record natural coast-down back to idle (up to 5s; break once settled)
     for (double t = 0.0; t < 5.0; t += frameDt) {
         sim.startFrame(frameDt);
         while (sim.simulateStep()) {}
@@ -439,7 +440,6 @@ bool AudioExporter::generateThrottleBlip(
     // 5. Short idle tail so the clip ends cleanly
     runSimulationSteps(sim, 0.30, &outSamples);
 
-    // Tiny edge fade only — keep the body untouched
     WavWriter::applyEnvelopeFade(outSamples, 256, 2048);
 
     return !outSamples.empty();
