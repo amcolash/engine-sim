@@ -201,37 +201,61 @@ void AudioExporter::ensureEngineRunning(PistonEngineSimulator &sim) {
         sim.getTransmission()->setClutchPressure(0.0);
     }
 
-    // Disable dyno — run freely, just like the interactive session
+    // Completely disable dyno — free-running engine
     sim.m_dyno.m_enabled = false;
     sim.m_dyno.m_hold = false;
 
-    // If engine is stopped, crank it with the starter motor
-    if (engine->getSpeed() < units::rpm(500)) {
-        engine->getIgnitionModule()->m_enabled = true;
+    // Enable ignition
+    engine->getIgnitionModule()->m_enabled = true;
+
+    // If engine is not running or running too slowly, crank it
+    if (engine->getSpeed() < units::rpm(600)) {
         sim.m_starterMotor.m_enabled = true;
-        sim.m_starterMotor.m_rotationSpeed = units::rpm(600);
+        sim.m_starterMotor.m_rotationSpeed = units::rpm(750);
         sim.m_starterMotor.m_maxTorque = 5000.0;
-        engine->setSpeedControl(0.35);
+        engine->setSpeedControl(0.20);
 
         const double frameDt = 0.02;
-        for (double t = 0.0; t < 2.0; t += frameDt) {
+        for (double t = 0.0; t < 0.8; t += frameDt) {
             sim.startFrame(frameDt);
-            while (sim.simulateStep()) {
-                if (engine->getSpeed() > units::rpm(700)) {
-                    sim.m_starterMotor.m_enabled = false;
-                }
-            }
+            while (sim.simulateStep()) {}
             sim.endFrame();
             drainAudio(sim, nullptr);
         }
         sim.m_starterMotor.m_enabled = false;
     }
 
-    // Drop to natural idle and let it stabilize — no dyno, just like interactive mode
-    engine->getIgnitionModule()->m_enabled = true;
+    // Drop to natural idle (0.0) and allow 0.8s to settle naturally
     engine->setSpeedControl(0.0);
-    runSimulationSteps(sim, 1.5, nullptr);
-    drainAudio(sim, nullptr);
+    const double frameDt = 0.02;
+    for (double t = 0.0; t < 0.8; t += frameDt) {
+        sim.startFrame(frameDt);
+        while (sim.simulateStep()) {}
+        sim.endFrame();
+        drainAudio(sim, nullptr);
+    }
+
+    // Safety fallback: if engine RPM fell below 500, crank once more with slight idle trim
+    if (engine->getSpeed() < units::rpm(500)) {
+        sim.m_starterMotor.m_enabled = true;
+        sim.m_starterMotor.m_rotationSpeed = units::rpm(800);
+        sim.m_starterMotor.m_maxTorque = 5000.0;
+        engine->setSpeedControl(0.25);
+        for (double t = 0.0; t < 0.8; t += frameDt) {
+            sim.startFrame(frameDt);
+            while (sim.simulateStep()) {}
+            sim.endFrame();
+            drainAudio(sim, nullptr);
+        }
+        sim.m_starterMotor.m_enabled = false;
+        engine->setSpeedControl(0.05);
+        for (double t = 0.0; t < 0.5; t += frameDt) {
+            sim.startFrame(frameDt);
+            while (sim.simulateStep()) {}
+            sim.endFrame();
+            drainAudio(sim, nullptr);
+        }
+    }
 }
 
 
@@ -372,9 +396,10 @@ bool AudioExporter::generateRevLimiter(
     WavWriter::applyMicroCrossfade(outSamples, 64);
     WavWriter::applyEnvelopeFade(outSamples, 256, 1024);
 
-    // Return throttle to idle and settle
-    engine->setSpeedControl(0.25);
-    sim.m_dyno.m_rotationSpeed = units::rpm(900);
+    // Return throttle to idle and settle (dyno disabled)
+    engine->setSpeedControl(0.0);
+    sim.m_dyno.m_enabled = false;
+    sim.m_dyno.m_hold = false;
     runSimulationSteps(sim, 0.6, nullptr);
     drainAudio(sim, nullptr);
 
@@ -390,19 +415,20 @@ bool AudioExporter::generateThrottleBlip(
 
     outSamples.clear();
 
-    // ensureEngineRunning now leaves the engine at natural idle (no dyno)
+    // 1. Ensure engine is running and stabilized at natural idle (no dyno)
     ensureEngineRunning(sim);
 
-    // 1. Record 0.5s of stable idle
-    runSimulationSteps(sim, 0.5, &outSamples);
+    // 2. Record 0.5s of stable natural idle
+    engine->setSpeedControl(0.0);
+    runSimulationSteps(sim, 0.50, &outSamples);
 
-    // 2. Snap to WOT — free-rev under its own inertia
+    // 3. Briefly tap R (snap to 1.0) — engine revs up freely under its own power
     engine->setSpeedControl(1.0);
 
     const double frameDt = 0.01;
     const double maxRevThreshold = engine->getRedline() * 0.90;
 
-    for (double t = 0.0; t < 5.0; t += frameDt) {
+    for (double t = 0.0; t < 3.0; t += frameDt) {
         sim.startFrame(frameDt);
         while (sim.simulateStep()) {}
         sim.endFrame();
@@ -410,22 +436,21 @@ bool AudioExporter::generateThrottleBlip(
         if (engine->getSpeed() >= maxRevThreshold) break;
     }
 
-    // 3. Release throttle back to idle position — natural coast-down
+    // 4. Release throttle back to natural idle (0.0) — coast down naturally
     engine->setSpeedControl(0.0);
 
-    const double idleTarget = units::rpm(1200);
+    const double idleTarget = units::rpm(1300);
 
-    // 4. Record coast-down until settled at idle
     for (double t = 0.0; t < 5.0; t += frameDt) {
         sim.startFrame(frameDt);
         while (sim.simulateStep()) {}
         sim.endFrame();
         drainAudio(sim, &outSamples);
-        if (t > 0.5 && engine->getSpeed() <= idleTarget) break;
+        if (t > 0.4 && engine->getSpeed() <= idleTarget) break;
     }
 
-    // 5. Short idle tail
-    runSimulationSteps(sim, 0.3, &outSamples);
+    // 5. Short idle tail to settle smoothly
+    runSimulationSteps(sim, 0.40, &outSamples);
 
     WavWriter::applyEnvelopeFade(outSamples, 256, 2048);
 

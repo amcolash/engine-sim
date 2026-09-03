@@ -16,8 +16,8 @@
       "script_path": "assets/engines/atg-video-2/07_gm_ls.mr",
       "export_profile": {
         "rpm_min": 1000,
-        "rpm_max": 6500,
-        "rpm_step": 500,
+        "rpm_max": 5000,
+        "rpm_step": 1000,
         "cycles_per_loop": 6,
         "export_steady_rpm": true,
         "export_starter": true,

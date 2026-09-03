@@ -1,2 +1,2 @@
 #!/bin/sh
-./build/engine-sim-app --export-audio recipes/fast_test.json
+nix develop -c ./build/engine-sim-app --export-audio recipes/game_vehicles.json "$@"

@@ -1,3 +1,3 @@
 #!/bin/sh
 
-./build/engine-sim-app
+nix develop -c ./build/engine-sim-app "$@"
