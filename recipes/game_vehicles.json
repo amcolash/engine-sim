@@ -1,0 +1,109 @@
+{
+  "global_settings": {
+    "output_dir": "assets/audio/engines",
+    "sample_rate": 44100,
+    "bits_per_sample": 16,
+    "normalize_peak_dbfs": -1.0,
+    "embed_loop_markers": true,
+    "default_cycles_per_loop": 6
+  },
+  "search_paths": ["assets", "assets/engines", "part-library"],
+  "vehicles": [
+    {
+      "id": "grizzly",
+      "display_name": "Grizzly Heavy V8 Pickup",
+      "script_path": "assets/engines/chevrolet/chev_truck_454.mr",
+      "export_profile": {
+        "rpm_min": 1000,
+        "rpm_max": 5000,
+        "rpm_step": 500,
+        "cycles_per_loop": 6,
+        "export_steady_rpm": true,
+        "export_starter": true,
+        "export_rev_limiter": true,
+        "export_rev_blip": true,
+        "export_decel_crackle": true
+      }
+    },
+    {
+      "id": "trench",
+      "display_name": "Trench Classic American V8",
+      "script_path": "assets/engines/atg-video-2/07_gm_ls.mr",
+      "export_profile": {
+        "rpm_min": 1000,
+        "rpm_max": 6500,
+        "rpm_step": 500,
+        "cycles_per_loop": 6,
+        "export_steady_rpm": true,
+        "export_starter": true,
+        "export_rev_limiter": true,
+        "export_rev_blip": true,
+        "export_decel_crackle": true
+      }
+    },
+    {
+      "id": "chariot",
+      "display_name": "Chariot Fleet V6 Taxi",
+      "script_path": "assets/engines/atg-video-2/06_even_fire_v6.mr",
+      "export_profile": {
+        "rpm_min": 1000,
+        "rpm_max": 6000,
+        "rpm_step": 500,
+        "cycles_per_loop": 6,
+        "export_steady_rpm": true,
+        "export_starter": true,
+        "export_rev_limiter": true,
+        "export_rev_blip": true,
+        "export_decel_crackle": true
+      }
+    },
+    {
+      "id": "tachyon",
+      "display_name": "Tachyon High-Cam I4 Hatchback",
+      "script_path": "assets/engines/atg-video-1/05_honda_vtec.mr",
+      "export_profile": {
+        "rpm_min": 1000,
+        "rpm_max": 7500,
+        "rpm_step": 500,
+        "cycles_per_loop": 6,
+        "export_steady_rpm": true,
+        "export_starter": true,
+        "export_rev_limiter": true,
+        "export_rev_blip": true,
+        "export_decel_crackle": true
+      }
+    },
+    {
+      "id": "mantis",
+      "display_name": "Mantis High-Rev Screamer",
+      "script_path": "assets/engines/atg-video-1/04_hayabusa.mr",
+      "export_profile": {
+        "rpm_min": 1500,
+        "rpm_max": 9000,
+        "rpm_step": 500,
+        "cycles_per_loop": 8,
+        "export_steady_rpm": true,
+        "export_starter": true,
+        "export_rev_limiter": true,
+        "export_rev_blip": true,
+        "export_decel_crackle": true
+      }
+    },
+    {
+      "id": "pulse",
+      "display_name": "Pulse Exotic V10",
+      "script_path": "assets/engines/atg-video-2/10_lfa_v10.mr",
+      "export_profile": {
+        "rpm_min": 1000,
+        "rpm_max": 9000,
+        "rpm_step": 500,
+        "cycles_per_loop": 6,
+        "export_steady_rpm": true,
+        "export_starter": true,
+        "export_rev_limiter": true,
+        "export_rev_blip": true,
+        "export_decel_crackle": true
+      }
+    }
+  ]
+}

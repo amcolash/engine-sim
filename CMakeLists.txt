@@ -95,10 +95,12 @@ add_library(engine-sim STATIC
     src/vehicle_drag_constraint.cpp
     src/vtec_valvetrain.cpp
     src/wav_writer.cpp
+    src/export_recipe.cpp
 
     # Include files
     include/audio_buffer.h
     include/application_settings.h
+    include/export_recipe.h
     include/camshaft.h
     include/crankshaft.h
     include/combustion_chamber.h
@@ -148,7 +150,8 @@ target_link_libraries(engine-sim
     delta-basic)
 
 target_include_directories(engine-sim
-    PUBLIC dependencies/submodules)
+    PUBLIC dependencies/submodules
+    PUBLIC dependencies/libraries/json)
 
 if (PIRANHA_ENABLED)
     add_library(engine-sim-script-interpreter STATIC
@@ -328,6 +331,7 @@ if (BUILD_TESTS)
         test/function_test.cpp
         test/synthesizer_tests.cpp
         test/wav_writer_test.cpp
+        test/export_recipe_test.cpp
     )
 
     target_link_libraries(engine-sim-test
