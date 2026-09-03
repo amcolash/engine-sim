@@ -268,7 +268,18 @@ bool AudioExporter::generateEngineStart(
 
     outSamples.clear();
 
-    // 1. Ensure dyno & transmission are completely disengaged
+    // 1. Force engine to complete 0 RPM dead stop using dyno brake
+    engine->getIgnitionModule()->m_enabled = false;
+    engine->setSpeedControl(0.0);
+    sim.m_starterMotor.m_enabled = false;
+    sim.m_dyno.m_enabled = true;
+    sim.m_dyno.m_hold = true;
+    sim.m_dyno.m_rotationSpeed = 0.0;
+    sim.m_dyno.m_maxTorque = 20000.0;
+    runSimulationSteps(sim, 0.6, nullptr);
+    drainAudio(sim, nullptr);
+
+    // Completely disengage dyno and transmission — engine is at 0 RPM
     sim.m_dyno.m_enabled = false;
     sim.m_dyno.m_hold = false;
     if (sim.getTransmission()) {
@@ -276,13 +287,7 @@ bool AudioExporter::generateEngineStart(
         sim.getTransmission()->setClutchPressure(0.0);
     }
 
-    // Turn off ignition and let engine come to a complete standstill at 0 RPM
-    engine->getIgnitionModule()->m_enabled = false;
-    engine->setSpeedControl(0.0);
-    runSimulationSteps(sim, 0.8, nullptr);
-    drainAudio(sim, nullptr);
-
-    // Let any synthesizer convolution impulse response ringout settle into silence
+    // Settle any synthesizer convolution impulse response ringout into absolute silence
     for (int frame = 0; frame < 20; ++frame) {
         sim.startFrame(0.02);
         while (sim.simulateStep()) {}
@@ -290,14 +295,17 @@ bool AudioExporter::generateEngineStart(
         drainAudio(sim, nullptr);
     }
 
-    // 2. Turn on ignition and engage starter motor until engine levels out
+    // 2. Record 0.10s of pure silence from dead stop before cranking
+    runSimulationSteps(sim, 0.10, &outSamples);
+
+    // 3. Turn on ignition and engage starter motor from dead standstill
     engine->getIgnitionModule()->m_enabled = true;
     sim.m_starterMotor.m_enabled = true;
     sim.m_starterMotor.m_rotationSpeed = -engine->getStarterSpeed();
     sim.m_starterMotor.m_maxTorque = engine->getStarterTorque();
     engine->setSpeedControl(0.0);
 
-    // Hold starter while recording as the engine cranks, fires, and levels out
+    // Hold starter while recording as the engine cranks from 0 RPM, fires, and levels out
     const double frameDt = 0.01;
     for (double t = 0.0; t < 0.85; t += frameDt) {
         sim.startFrame(frameDt);
@@ -306,17 +314,16 @@ bool AudioExporter::generateEngineStart(
         drainAudio(sim, &outSamples);
     }
 
-    // 3. Release starter
+    // 4. Release starter
     sim.m_starterMotor.m_enabled = false;
 
-    // 4. Idle for 1.0 second
+    // 5. Idle for 1.0 second
     engine->setSpeedControl(0.0);
     runSimulationSteps(sim, 1.0, &outSamples);
 
-    // 5. 100ms fade-in, 200ms fade-out
-    const size_t fadeInSamples = static_cast<size_t>(0.10 * 44100);
+    // 6. Smooth 200ms fade-out at the end
     const size_t fadeOutSamples = static_cast<size_t>(0.20 * 44100);
-    WavWriter::applyEnvelopeFade(outSamples, fadeInSamples, fadeOutSamples);
+    WavWriter::applyEnvelopeFade(outSamples, 256, fadeOutSamples);
 
     return !outSamples.empty();
 }
