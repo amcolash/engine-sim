@@ -35,6 +35,7 @@ pkgs.stdenv.mkDerivation {
     libGLU
     libx11
     libxrandr
+    mesa
   ];
 
   cmakeFlags = [
@@ -59,7 +60,7 @@ pkgs.stdenv.mkDerivation {
           $src/dependencies/submodules/delta-studio/engines/basic/shaders \
           $out/share/engine-sim/dependencies/submodules/delta-studio/engines/basic/
 
-    # Wrap binary with graphics library paths
+    # Wrap binary with graphics library paths and driver search paths
     wrapProgram $out/bin/engine-sim \
       --prefix LD_LIBRARY_PATH : ${pkgs.lib.makeLibraryPath (with pkgs; [
         libGL
@@ -67,7 +68,10 @@ pkgs.stdenv.mkDerivation {
         SDL2
         SDL2_image
         libx11
+        mesa
       ])} \
+      --prefix LIBGL_DRIVERS_PATH : ${pkgs.mesa}/lib/dri \
+      --prefix __EGL_VENDOR_LIBRARY_DIRS : ${pkgs.mesa}/share/glvnd/egl_vendor.d \
       --set-default ENGINE_SIM_DATA_ROOT $out/share/engine-sim
 
     runHook postInstall
