@@ -47,6 +47,10 @@
               libx11
               mesa
             ])}:$LD_LIBRARY_PATH"
+            # Force SDL (including SDL3 via sdl2-compat) to use X11/GLX rather than
+            # Wayland/EGL, which fails on this system due to AMD DRM permissions.
+            export SDL_VIDEODRIVER=x11
+            unset WAYLAND_DISPLAY
             echo "=========================================="
             echo " Engine Simulator Native Linux Environment "
             echo "=========================================="
