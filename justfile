@@ -27,6 +27,10 @@ export-audio *ARGS: build
 export-fast *ARGS: build
     nix develop -c ./build/engine-sim-app --export-audio recipes/fast_test.json {{ARGS}}
 
+# Export rev-blip test
+export-blip *ARGS: build
+    nix develop -c ./build/engine-sim-app --export-audio recipes/rev_blip.json {{ARGS}}
+
 # Export single MR engine script directly
 export-engine SCRIPT *ARGS: build
     nix develop -c ./build/engine-sim-app --export-engine {{SCRIPT}} {{ARGS}}
