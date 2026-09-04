@@ -100,45 +100,53 @@ bool AudioExporter::captureSteadyRpmLoop(
     std::vector<float> &outSamples)
 {
     Engine *engine = sim.getEngine();
-    if (!engine) return false;
+    if (!engine || targetRpm <= 0) return false;
 
     outSamples.clear();
 
+    const double sampleRate = 44100.0;
     // In a 4-stroke engine, 1 combustion cycle (720 deg) = 120 / RPM seconds.
-    // Ensure we capture enough complete cycles to meet or exceed minDurationSec (e.g. >= 1.0s).
+    const double secondsPerCycle = 120.0 / static_cast<double>(targetRpm);
+    const double cycleSamples = secondsPerCycle * sampleRate;
+
     int totalCycles = cyclesToCapture;
-    if (minDurationSec > 0.0 && targetRpm > 0) {
-        double secondsPerCycle = 120.0 / static_cast<double>(targetRpm);
+    if (minDurationSec > 0.0) {
         int requiredCycles = static_cast<int>(std::ceil(minDurationSec / secondsPerCycle));
         totalCycles = std::max(cyclesToCapture, requiredCycles);
     }
+
+    // Exact integer sample length for the full k cycles
+    const size_t targetSamples = static_cast<size_t>(std::round(totalCycles * cycleSamples));
+    // Overlap for seamless equal-power crossfade between the continuation tail and head
+    const size_t crossfadeSamples = std::clamp(static_cast<size_t>(std::round(cycleSamples / 8.0)), size_t(32), size_t(256));
+    const size_t requiredTotalSamples = targetSamples + crossfadeSamples;
 
     // Configure virtual dynamometer to hold exact target RPM
     sim.m_dyno.m_enabled = true;
     sim.m_dyno.m_hold = true;
     sim.m_dyno.m_rotationSpeed = units::rpm(targetRpm);
-    sim.m_dyno.m_maxTorque = 20000.0;
-    sim.m_dyno.m_ks = 2000.0;
-    sim.m_dyno.m_kd = 20.0;
+    sim.m_dyno.m_maxTorque = 50000.0;
+    sim.m_dyno.m_ks = 10000.0;
+    sim.m_dyno.m_kd = 50.0;
 
     // Set sufficient throttle to keep cylinders firing against dyno load
     double throttle = std::clamp(0.25 + 0.60 * (static_cast<double>(targetRpm) / 8000.0), 0.25, 0.90);
     engine->setSpeedControl(throttle);
 
-    // Warm up & let dyno lock speed (1.0s)
-    runSimulationSteps(sim, 1.0, nullptr);
+    // Warm up & let dyno lock speed and settle combustion (1.2s)
+    runSimulationSteps(sim, 1.2, nullptr);
     drainAudio(sim, nullptr); // Discard warmup audio
 
     // Track crankshaft cycle angle (0 to 4*pi for 4-stroke 720 deg)
     Crankshaft *crank = engine->getOutputCrankshaft();
     const double wrapThreshold = 2.0 * constants::pi;
 
-    // 1. Wait for angle to wrap around 0 / 4*pi boundary
+    // 1. Wait for angle to wrap around 0 / 4*pi boundary (Cylinder 1 TDC start)
     double lastAngle = crank->getCycleAngle();
     bool zeroCrossed = false;
-    const double frameDt = 0.005; // 5ms high-precision frame
-    for (int frame = 0; frame < 500; ++frame) {
-        sim.startFrame(frameDt);
+    const double alignDt = 0.001; // 1ms fine-grained stepping to align phase
+    for (int step = 0; step < 2000; ++step) {
+        sim.startFrame(alignDt);
         while (sim.simulateStep()) {
             double angle = crank->getCycleAngle();
             if (std::abs(angle - lastAngle) > wrapThreshold) {
@@ -154,39 +162,30 @@ bool AudioExporter::captureSteadyRpmLoop(
 
     if (!zeroCrossed) return false;
 
-    // 2. Record exactly N full 720-degree combustion cycles
-    int completedCycles = 0;
-    lastAngle = crank->getCycleAngle();
+    // 2. Stream exactly requiredTotalSamples (targetSamples + crossfadeSamples) from continuous physics
+    std::vector<float> capturedSamples;
+    capturedSamples.reserve(requiredTotalSamples + 4096);
 
-    for (int frame = 0; frame < 4000; ++frame) {
+    const double frameDt = 0.005; // 5ms high-precision frames
+    for (int frame = 0; frame < 5000 && capturedSamples.size() < requiredTotalSamples; ++frame) {
         sim.startFrame(frameDt);
-        bool finished = false;
-        while (sim.simulateStep()) {
-            double angle = crank->getCycleAngle();
-
-            // Check cycle boundary crossing
-            if (std::abs(angle - lastAngle) > wrapThreshold) {
-                completedCycles++;
-                if (completedCycles >= totalCycles) {
-                    finished = true;
-                    break;
-                }
-            }
-            lastAngle = angle;
-        }
+        while (sim.simulateStep()) {}
         sim.endFrame();
-        drainAudio(sim, &outSamples);
-
-        if (finished) break;
+        drainAudio(sim, &capturedSamples);
     }
 
-    // Drain any remaining tail
-    for (int i = 0; i < 5; ++i) {
-        drainAudio(sim, &outSamples);
+    if (capturedSamples.size() < requiredTotalSamples) {
+        return false;
     }
 
-    // Apply micro-crossfade at the seam
-    WavWriter::applyMicroCrossfade(outSamples, 32);
+    // 3. Apply seamless equal-power crossfade between the continuation tail (sample targetSamples..targetSamples+M) and head
+    outSamples.assign(capturedSamples.begin(), capturedSamples.begin() + targetSamples);
+    for (size_t i = 0; i < crossfadeSamples; ++i) {
+        const double t = static_cast<double>(i) / static_cast<double>(crossfadeSamples);
+        const double w_head = std::sin(t * (constants::pi / 2.0));
+        const double w_tail = std::cos(t * (constants::pi / 2.0));
+        outSamples[i] = static_cast<float>(outSamples[i] * w_head + capturedSamples[targetSamples + i] * w_tail);
+    }
 
     return !outSamples.empty();
 }
@@ -695,7 +694,7 @@ bool AudioExporter::exportVehicle(
     // 3. Initialize simulator via engine factory
     PistonEngineSimulator *simulator = static_cast<PistonEngineSimulator *>(engine->createSimulator(vehicle, transmission));
     simulator->setSimulationFrequency(engine->getSimulationFrequency());
-    simulator->setTargetSynthesizerLatency(100.0); // Prevent real-time latency throttling in headless mode
+    simulator->setTargetSynthesizerLatency(0.0); // Exact physics stepping in headless mode
 
     Synthesizer::AudioParameters audioParams = simulator->synthesizer().getAudioParameters();
     audioParams.inputSampleNoise = static_cast<float>(engine->getInitialJitter());
@@ -883,12 +882,7 @@ bool AudioExporter::exportVehicle(
         }
     }
 
-    // 7. Write Manifest
-    std::string manifestPath = vehicleOutputDir + "/manifest.json";
-    writeManifest(manifestPath, vehicleConfig, globalSettings, renderedLoops, renderedTransients);
-    std::cout << "Wrote Godot manifest: " << manifestPath << "\n";
-
-    // 8. Cleanup
+    // 7. Cleanup
     simulator->releaseSimulation();
     delete simulator;
     delete vehicle;

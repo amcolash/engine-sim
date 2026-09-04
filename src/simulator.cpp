@@ -76,13 +76,15 @@ void Simulator::startFrame(double dt) {
     m_steps = (int)std::round((dt * m_simulationSpeed) / timestep);
 
     const double targetLatency = getSynthesizerInputLatencyTarget();
-    if (m_synthesizer.getLatency() < targetLatency) {
-        m_steps = static_cast<int>((m_steps + 1) * 1.1);
-    }
-    else if (m_synthesizer.getLatency() > targetLatency) {
-        m_steps = static_cast<int>((m_steps - 1) * 0.9);
-        if (m_steps < 0) {
-            m_steps = 0;
+    if (targetLatency > 0.0) {
+        if (m_synthesizer.getLatency() < targetLatency) {
+            m_steps = static_cast<int>((m_steps + 1) * 1.1);
+        }
+        else if (m_synthesizer.getLatency() > targetLatency) {
+            m_steps = static_cast<int>((m_steps - 1) * 0.9);
+            if (m_steps < 0) {
+                m_steps = 0;
+            }
         }
     }
 

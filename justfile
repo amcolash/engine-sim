@@ -21,6 +21,10 @@ test *ARGS: build
 
 # Export all game vehicles audio (full batch)
 export-audio *ARGS: build
+    #!/usr/bin/env bash
+    rm -rf assets/audio/engines
+    mkdir -p assets/audio/engines
+    cp -R assets/audio/engines/* /home/amcolash/Dev/drag-race/assets/engine
     nix develop -c ./build/engine-sim-app --export-audio recipes/game_vehicles.json {{ARGS}}
 
 # Export fast test vehicle audio
