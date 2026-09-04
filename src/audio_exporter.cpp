@@ -535,6 +535,10 @@ void AudioExporter::writeManifest(
     }
 }
 
+namespace {
+    std::mutex s_logMutex;
+}
+
 bool AudioExporter::exportVehicle(
     const VehicleExportConfig &vehicleConfig,
     const GlobalExportSettings &globalSettings,
@@ -542,10 +546,13 @@ bool AudioExporter::exportVehicle(
     const std::string &dataRoot,
     ProgressCallback *callback)
 {
-    std::cout << "\n=======================================================" << std::endl;
-    std::cout << " Exporting Vehicle Audio: " << vehicleConfig.displayName << " (" << vehicleConfig.id << ")" << std::endl;
-    std::cout << " Script: " << vehicleConfig.scriptPath << std::endl;
-    std::cout << "=======================================================" << std::endl;
+    {
+        std::lock_guard<std::mutex> lock(s_logMutex);
+        std::cout << "\n[" << vehicleConfig.id << "] =======================================================\n";
+        std::cout << "[" << vehicleConfig.id << "] Exporting: " << vehicleConfig.displayName << " (" << vehicleConfig.id << ")\n";
+        std::cout << "[" << vehicleConfig.id << "] Script: " << vehicleConfig.scriptPath << "\n";
+        std::cout << "[" << vehicleConfig.id << "] =======================================================\n" << std::flush;
+    }
 
     // 1. Build search paths
     std::vector<piranha::IrPath> piranhaPaths;
@@ -566,9 +573,9 @@ bool AudioExporter::exportVehicle(
         resolvedScriptPath = std::filesystem::path(dataRoot) / scriptPathStr;
     }
 
-    std::cout << "Resolved script path: " << resolvedScriptPath.string() << std::endl;
     if (!std::filesystem::exists(resolvedScriptPath)) {
-        std::cerr << "Error: Engine script not found: " << vehicleConfig.scriptPath << std::endl;
+        std::lock_guard<std::mutex> lock(s_logMutex);
+        std::cerr << "[" << vehicleConfig.id << "] Error: Engine script not found: " << vehicleConfig.scriptPath << std::endl;
         return false;
     }
 
@@ -641,14 +648,14 @@ bool AudioExporter::exportVehicle(
     }
 
     if (!compiled) {
-        std::cout << "Wrapper compilation failed. Error log:\n" << errorLog.str() << std::endl;
+        std::lock_guard<std::mutex> lock(s_logMutex);
+        std::cout << "[" << vehicleConfig.id << "] Wrapper compilation failed. Error log:\n" << errorLog.str() << std::endl;
         es_script::Compiler directCompiler;
         directCompiler.initialize(piranhaPaths);
         std::stringstream fallbackLog;
         compiled = directCompiler.compile(resolvedScriptPath.string(), fallbackLog);
-        std::cout << "Fallback direct compile result: " << compiled << std::endl;
         if (!compiled) {
-            std::cerr << "Error: Failed to compile engine script: " << vehicleConfig.scriptPath << std::endl;
+            std::cerr << "[" << vehicleConfig.id << "] Error: Failed to compile engine script: " << vehicleConfig.scriptPath << std::endl;
             std::cerr << fallbackLog.str() << std::endl;
             std::filesystem::remove(tempEntryPath);
             directCompiler.destroy();
@@ -663,9 +670,9 @@ bool AudioExporter::exportVehicle(
     Vehicle *vehicle = compiledOutput.vehicle;
     Transmission *transmission = compiledOutput.transmission;
 
-    std::cout << "Engine pointer: " << engine << std::endl;
     if (!engine) {
-        std::cerr << "Error: No engine found in script " << vehicleConfig.scriptPath << std::endl;
+        std::lock_guard<std::mutex> lock(s_logMutex);
+        std::cerr << "[" << vehicleConfig.id << "] Error: No engine found in script " << vehicleConfig.scriptPath << std::endl;
         return false;
     }
 
@@ -736,7 +743,6 @@ bool AudioExporter::exportVehicle(
 
     // 4. Start & initialize engine
     if (callback) callback->onProgress(vehicleConfig.id, "Starting Engine", 0.05f);
-    std::cout << "Starting and stabilizing engine..." << std::endl;
     initializeAndStartEngine(*simulator, engine);
 
     const std::string vehicleOutputDir = globalSettings.outputDir + "/" + vehicleConfig.id;
@@ -776,7 +782,6 @@ bool AudioExporter::exportVehicle(
                 double secPerCycle = 120.0 / static_cast<double>(rpm);
                 cycles = std::max(cycles, static_cast<int>(std::ceil(vehicleConfig.exportProfile.minLoopDurationSec / secPerCycle)));
             }
-            std::cout << "  -> Recording loop @ " << rpm << " RPM (" << cycles << " cycles, >=" << vehicleConfig.exportProfile.minLoopDurationSec << "s)..." << std::flush;
 
             std::vector<float> loopSamples;
             bool success = captureSteadyRpmLoop(
@@ -805,18 +810,19 @@ bool AudioExporter::exportVehicle(
                 rl.loopEndSample = static_cast<uint32_t>(rl.samples.size() - 1);
                 renderedLoops.push_back(rl);
 
-                std::cout << " OK (" << rl.durationSec << "s, " << rl.samples.size() << " samples)\n";
+                std::lock_guard<std::mutex> lock(s_logMutex);
+                std::cout << "  [" << vehicleConfig.id << "] -> Loop @ " << rpm << " RPM (" << cycles << " cycles)... OK (" << rl.durationSec << "s, " << rl.samples.size() << " samples)\n" << std::flush;
             } else {
-                std::cout << " FAILED\n";
+                std::lock_guard<std::mutex> lock(s_logMutex);
+                std::cout << "  [" << vehicleConfig.id << "] -> Loop @ " << rpm << " RPM FAILED\n" << std::flush;
             }
         }
     }
 
     // 6. Export Transient Sounds
-    // A. Engine Start (from silent -> rev to 2000 RPM -> decel to idle)
+    // A. Engine Start
     if (vehicleConfig.exportProfile.exportStarter) {
         if (callback) callback->onProgress(vehicleConfig.id, "Engine Start", 0.75f);
-        std::cout << "  -> Recording engine start..." << std::flush;
         std::vector<float> samples;
         if (generateEngineStart(*simulator, samples)) {
             std::string fileName = "engine_start.wav";
@@ -826,14 +832,15 @@ bool AudioExporter::exportVehicle(
             rt.fileName = fileName;
             rt.durationSec = static_cast<double>(samples.size()) / globalSettings.sampleRate;
             renderedTransients.push_back(rt);
-            std::cout << " OK (" << rt.durationSec << "s)\n";
+
+            std::lock_guard<std::mutex> lock(s_logMutex);
+            std::cout << "  [" << vehicleConfig.id << "] -> Engine start... OK (" << rt.durationSec << "s)\n" << std::flush;
         }
     }
 
     // C. Rev Limiter
     if (vehicleConfig.exportProfile.exportRevLimiter) {
         if (callback) callback->onProgress(vehicleConfig.id, "Rev Limiter", 0.85f);
-        std::cout << "  -> Recording rev limiter bounce..." << std::flush;
         std::vector<float> samples;
         if (generateRevLimiter(*simulator, 2.5, samples)) {
             std::string fileName = "rev_limiter.wav";
@@ -843,14 +850,15 @@ bool AudioExporter::exportVehicle(
             rt.fileName = fileName;
             rt.durationSec = static_cast<double>(samples.size()) / globalSettings.sampleRate;
             renderedTransients.push_back(rt);
-            std::cout << " OK (" << rt.durationSec << "s)\n";
+
+            std::lock_guard<std::mutex> lock(s_logMutex);
+            std::cout << "  [" << vehicleConfig.id << "] -> Rev limiter bounce... OK (" << rt.durationSec << "s)\n" << std::flush;
         }
     }
 
     // D. Throttle Blip
     if (vehicleConfig.exportProfile.exportRevBlip) {
         if (callback) callback->onProgress(vehicleConfig.id, "Throttle Blip", 0.90f);
-        std::cout << "  -> Recording throttle blip..." << std::flush;
         std::vector<float> samples;
         if (generateThrottleBlip(*simulator, samples)) {
             std::string fileName = "rev_blip.wav";
@@ -860,14 +868,15 @@ bool AudioExporter::exportVehicle(
             rt.fileName = fileName;
             rt.durationSec = static_cast<double>(samples.size()) / globalSettings.sampleRate;
             renderedTransients.push_back(rt);
-            std::cout << " OK (" << rt.durationSec << "s)\n";
+
+            std::lock_guard<std::mutex> lock(s_logMutex);
+            std::cout << "  [" << vehicleConfig.id << "] -> Throttle blip... OK (" << rt.durationSec << "s)\n" << std::flush;
         }
     }
 
     // E. Decel Crackle
     if (vehicleConfig.exportProfile.exportDecelCrackle) {
         if (callback) callback->onProgress(vehicleConfig.id, "Decel Crackle", 0.95f);
-        std::cout << "  -> Recording decel crackle..." << std::flush;
         std::vector<float> samples;
         int decelRpm = std::max(4000, vehicleConfig.exportProfile.rpmMax - 1000);
         if (generateDecelCrackle(*simulator, decelRpm, 2.0, samples)) {
@@ -878,7 +887,9 @@ bool AudioExporter::exportVehicle(
             rt.fileName = fileName;
             rt.durationSec = static_cast<double>(samples.size()) / globalSettings.sampleRate;
             renderedTransients.push_back(rt);
-            std::cout << " OK (" << rt.durationSec << "s)\n";
+
+            std::lock_guard<std::mutex> lock(s_logMutex);
+            std::cout << "  [" << vehicleConfig.id << "] -> Decel crackle... OK (" << rt.durationSec << "s)\n" << std::flush;
         }
     }
 
@@ -899,18 +910,59 @@ bool AudioExporter::exportRecipe(
     const std::string &dataRoot,
     ProgressCallback *callback)
 {
-    std::cout << "\n=======================================================\n";
-    std::cout << " Starting Batch Engine Sound Export\n";
-    std::cout << " Vehicles to export: " << recipe.vehicles.size() << "\n";
-    std::cout << " Output destination: " << recipe.globalSettings.outputDir << "\n";
-    std::cout << "=======================================================\n";
-
-    for (size_t i = 0; i < recipe.vehicles.size(); ++i) {
-        const auto &vc = recipe.vehicles[i];
-        exportVehicle(vc, recipe.globalSettings, recipe.defaultSearchPaths, dataRoot, callback);
+    if (recipe.vehicles.empty()) {
+        std::cout << "No vehicles to export.\n";
+        return true;
     }
 
-    std::cout << "\nBatch Audio Export Complete!\n";
+    const unsigned int hwThreads = std::thread::hardware_concurrency();
+    const unsigned int maxWorkers = std::max(1u, hwThreads > 1 ? hwThreads - 1 : 1u);
+    const size_t numThreads = std::min(static_cast<size_t>(maxWorkers), recipe.vehicles.size());
+
+    {
+        std::lock_guard<std::mutex> lock(s_logMutex);
+        std::cout << "\n=======================================================\n";
+        std::cout << " Starting Batch Engine Sound Export (Multi-Threaded)\n";
+        std::cout << " Vehicles to export: " << recipe.vehicles.size() << "\n";
+        std::cout << " Output destination: " << recipe.globalSettings.outputDir << "\n";
+        std::cout << " Parallel worker threads: " << numThreads << " (system threads: " << hwThreads << ")\n";
+        std::cout << "=======================================================\n" << std::flush;
+    }
+
+    std::atomic<size_t> nextIndex(0);
+    std::atomic<size_t> completed(0);
+    std::vector<std::thread> workers;
+    workers.reserve(numThreads);
+
+    for (size_t t = 0; t < numThreads; ++t) {
+        workers.emplace_back([&]() {
+            while (true) {
+                size_t idx = nextIndex.fetch_add(1);
+                if (idx >= recipe.vehicles.size()) break;
+
+                const auto &vc = recipe.vehicles[idx];
+                exportVehicle(vc, recipe.globalSettings, recipe.defaultSearchPaths, dataRoot, callback);
+
+                size_t done = completed.fetch_add(1) + 1;
+                std::lock_guard<std::mutex> lock(s_logMutex);
+                std::cout << "\n>>> [" << done << "/" << recipe.vehicles.size() << "] Completed "
+                          << vc.displayName << " (" << vc.id << ")\n" << std::flush;
+            }
+        });
+    }
+
+    for (auto &t : workers) {
+        if (t.joinable()) {
+            t.join();
+        }
+    }
+
+    {
+        std::lock_guard<std::mutex> lock(s_logMutex);
+        std::cout << "\n=======================================================\n";
+        std::cout << " Batch Audio Export Complete! (" << completed.load() << "/" << recipe.vehicles.size() << " vehicles)\n";
+        std::cout << "=======================================================\n" << std::flush;
+    }
     return true;
 }
 

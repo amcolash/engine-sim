@@ -23,7 +23,7 @@ namespace es_script {
         };
 
     private:
-        static Output *s_output;
+        static thread_local Output *s_output;
 
     public:
         Compiler();

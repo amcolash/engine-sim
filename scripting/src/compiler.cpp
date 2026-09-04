@@ -1,6 +1,6 @@
 #include "../include/compiler.h"
 
-es_script::Compiler::Output *es_script::Compiler::s_output = nullptr;
+thread_local es_script::Compiler::Output *es_script::Compiler::s_output = nullptr;
 
 es_script::Compiler::Compiler() {
     m_compiler = nullptr;
