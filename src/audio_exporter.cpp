@@ -607,14 +607,33 @@ bool AudioExporter::exportVehicle(
             "import \"" + resolvedScriptPath.filename().string() + "\"\n\n"
             "use_default_theme()\n"
             "main()\n";
-    } else {
-        // Look for public node <name>
-        std::regex pubNodeRegex(R"(public\s+node\s+([a-zA-Z0-9_]+))");
+        // Look for public node <name> that defines or aliases an engine
+        std::regex engNodeRegex(R"(public\s+node\s+([a-zA-Z0-9_]+)\s*\{[\s\S]*?(engine\s+engine|alias\s+output\s+__out:\s*engine))");
         std::smatch match;
-        if (std::regex_search(scriptContent, match, pubNodeRegex) && match.size() > 1) {
+        if (std::regex_search(scriptContent, match, engNodeRegex) && match.size() > 1) {
             detectedNode = match[1].str();
         } else {
-            detectedNode = resolvedScriptPath.stem().string();
+            std::regex anyPubRegex(R"(public\s+node\s+([a-zA-Z0-9_]+))");
+            auto it_begin = std::sregex_iterator(scriptContent.begin(), scriptContent.end(), anyPubRegex);
+            auto it_end = std::sregex_iterator();
+            std::string stem = resolvedScriptPath.stem().string();
+            bool foundStem = false;
+            for (auto it = it_begin; it != it_end; ++it) {
+                std::string n = (*it)[1].str();
+                if (strcasecmp(n.c_str(), stem.c_str()) == 0) {
+                    detectedNode = n;
+                    foundStem = true;
+                    break;
+                }
+            }
+            if (!foundStem) {
+                for (auto it = it_begin; it != it_end; ++it) {
+                    detectedNode = (*it)[1].str();
+                }
+                if (detectedNode.empty()) {
+                    detectedNode = stem;
+                }
+            }
         }
 
         entryScriptContent =

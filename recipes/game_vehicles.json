@@ -157,10 +157,10 @@
     {
       "id": "chariot",
       "display_name": "Chariot (TAXI) — Balanced Street",
-      "script_path": "assets/engines/atg-video-2/06_even_fire_v6.mr",
+      "script_path": "assets/engines/atg-video-2/04_60_degree_v6.mr",
       "export_profile": {
         "rpm_min": 800,
-        "rpm_max": 6000,
+        "rpm_max": 6500,
         "rpm_step": 500,
         "cycles_per_loop": 6,
         "min_loop_duration_sec": 1.0,
