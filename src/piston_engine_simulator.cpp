@@ -31,6 +31,7 @@ PistonEngineSimulator::~PistonEngineSimulator() {
     assert(m_cylinderWallConstraints == nullptr);
     assert(m_linkConstraints == nullptr);
     assert(m_crankshaftFrictionConstraints == nullptr);
+    assert(m_crankshaftLinks == nullptr);
     assert(m_exhaustFlowStagingBuffer == nullptr);
     assert(m_delayFilters == nullptr);
 }
@@ -52,7 +53,7 @@ void PistonEngineSimulator::loadSimulation(Engine *engine, Vehicle *vehicle, Tra
     m_cylinderWallConstraints = new atg_scs::LineConstraint[cylinderCount];
     m_linkConstraints = new atg_scs::LinkConstraint[linkCount];
     m_crankshaftFrictionConstraints = new atg_scs::RotationFrictionConstraint[crankCount];
-    m_crankshaftLinks = new atg_scs::ClutchConstraint[crankCount - 1];
+    m_crankshaftLinks = (crankCount > 1) ? new atg_scs::ClutchConstraint[crankCount - 1] : nullptr;
     m_delayFilters = new DelayFilter[cylinderCount];
 
     const double ks = 5000;
@@ -349,21 +350,25 @@ void PistonEngineSimulator::destroy() {
     if (m_cylinderWallConstraints != nullptr) delete[] m_cylinderWallConstraints;
     if (m_linkConstraints != nullptr) delete[] m_linkConstraints;
     if (m_crankshaftFrictionConstraints != nullptr) delete[] m_crankshaftFrictionConstraints;
+    if (m_crankshaftLinks != nullptr) delete[] m_crankshaftLinks;
     if (m_exhaustFlowStagingBuffer != nullptr) delete[] m_exhaustFlowStagingBuffer;
-    if (m_system != nullptr) delete m_system;
     if (m_delayFilters != nullptr) delete[] m_delayFilters;
+    if (m_system != nullptr) delete m_system;
 
     m_crankConstraints = nullptr;
     m_cylinderWallConstraints = nullptr;
     m_linkConstraints = nullptr;
     m_crankshaftFrictionConstraints = nullptr;
+    m_crankshaftLinks = nullptr;
     m_exhaustFlowStagingBuffer = nullptr;
+    m_delayFilters = nullptr;
     m_system = nullptr;
 
     m_vehicle = nullptr;
     m_transmission = nullptr;
     m_engine = nullptr;
-    m_delayFilters = nullptr;
+
+    Simulator::destroy();
 }
 
 void PistonEngineSimulator::writeToSynthesizer() {
