@@ -629,29 +629,36 @@ bool AudioExporter::exportVehicle(
     }
 
     std::stringstream errorLog;
-    es_script::Compiler compiler;
-    compiler.initialize(piranhaPaths);
-
-    bool compiled = compiler.compile(tempEntryPath, errorLog);
+    es_script::Compiler::Output compiledOutput;
+    bool compiled = false;
+    {
+        es_script::Compiler compiler;
+        compiler.initialize(piranhaPaths);
+        compiled = compiler.compile(tempEntryPath, errorLog);
+        if (compiled) {
+            compiledOutput = compiler.execute();
+        }
+        compiler.destroy();
+    }
 
     if (!compiled) {
         std::cout << "Wrapper compilation failed. Error log:\n" << errorLog.str() << std::endl;
-        compiler.destroy();
-        compiler.initialize(piranhaPaths);
+        es_script::Compiler directCompiler;
+        directCompiler.initialize(piranhaPaths);
         std::stringstream fallbackLog;
-        compiled = compiler.compile(resolvedScriptPath.string(), fallbackLog);
+        compiled = directCompiler.compile(resolvedScriptPath.string(), fallbackLog);
         std::cout << "Fallback direct compile result: " << compiled << std::endl;
         if (!compiled) {
             std::cerr << "Error: Failed to compile engine script: " << vehicleConfig.scriptPath << std::endl;
             std::cerr << fallbackLog.str() << std::endl;
             std::filesystem::remove(tempEntryPath);
-            compiler.destroy();
+            directCompiler.destroy();
             return false;
         }
+        compiledOutput = directCompiler.execute();
+        directCompiler.destroy();
     }
 
-    es_script::Compiler::Output compiledOutput = compiler.execute();
-    compiler.destroy();
     std::filesystem::remove(tempEntryPath);
     Engine *engine = compiledOutput.engine;
     Vehicle *vehicle = compiledOutput.vehicle;
@@ -660,7 +667,6 @@ bool AudioExporter::exportVehicle(
     std::cout << "Engine pointer: " << engine << std::endl;
     if (!engine) {
         std::cerr << "Error: No engine found in script " << vehicleConfig.scriptPath << std::endl;
-        compiler.destroy();
         return false;
     }
 
