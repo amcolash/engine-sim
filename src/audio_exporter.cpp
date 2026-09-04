@@ -607,6 +607,7 @@ bool AudioExporter::exportVehicle(
             "import \"" + resolvedScriptPath.filename().string() + "\"\n\n"
             "use_default_theme()\n"
             "main()\n";
+    } else {
         // Look for public node <name> that defines or aliases an engine
         std::regex engNodeRegex(R"(public\s+node\s+([a-zA-Z0-9_]+)\s*\{[\s\S]*?(engine\s+engine|alias\s+output\s+__out:\s*engine))");
         std::smatch match;
