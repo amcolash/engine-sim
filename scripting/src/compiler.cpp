@@ -19,6 +19,12 @@ es_script::Compiler::Output *es_script::Compiler::output() {
 }
 
 void es_script::Compiler::initialize(const std::vector<piranha::IrPath> &searchPaths) {
+    if (s_output != nullptr) {
+        delete s_output;
+        s_output = nullptr;
+    }
+    s_output = new Output;
+
     m_compiler = new piranha::Compiler(&m_rules);
     m_compiler->setFileExtension(".mr");
 
@@ -60,6 +66,12 @@ bool es_script::Compiler::compile(const piranha::IrPath &path, std::ostream &log
 }
 
 es_script::Compiler::Output es_script::Compiler::execute() {
+    if (s_output != nullptr) {
+        delete s_output;
+        s_output = nullptr;
+    }
+    s_output = new Output;
+
     const bool result = m_program.execute();
 
     if (!result) {
@@ -75,6 +87,11 @@ void es_script::Compiler::destroy() {
 
     delete m_compiler;
     m_compiler = nullptr;
+
+    if (s_output != nullptr) {
+        delete s_output;
+        s_output = nullptr;
+    }
 }
 
 void es_script::Compiler::printError(
