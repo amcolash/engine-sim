@@ -651,6 +651,7 @@ bool AudioExporter::exportVehicle(
     }
 
     es_script::Compiler::Output compiledOutput = compiler.execute();
+    compiler.destroy();
     std::filesystem::remove(tempEntryPath);
     Engine *engine = compiledOutput.engine;
     Vehicle *vehicle = compiledOutput.vehicle;
@@ -754,6 +755,9 @@ bool AudioExporter::exportVehicle(
             int step = vehicleConfig.exportProfile.rpmStep > 0 ? vehicleConfig.exportProfile.rpmStep : 500;
             for (int r = vehicleConfig.exportProfile.rpmMin; r <= vehicleConfig.exportProfile.rpmMax; r += step) {
                 targetRpms.push_back(r);
+            }
+            if (targetRpms.empty() || targetRpms.back() != vehicleConfig.exportProfile.rpmMax) {
+                targetRpms.push_back(vehicleConfig.exportProfile.rpmMax);
             }
         }
 
@@ -885,7 +889,6 @@ bool AudioExporter::exportVehicle(
     delete transmission;
     engine->destroy();
     delete engine;
-    compiler.destroy();
 
     if (callback) callback->onProgress(vehicleConfig.id, "Complete", 1.0f);
     return true;
