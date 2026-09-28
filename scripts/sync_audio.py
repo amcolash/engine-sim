@@ -135,7 +135,104 @@ def compare_audio(existing_path, new_path, similarity_threshold=0.985, max_rms_d
 
     return True, f"Acoustically identical ({cosine_sim * 100:.1f}% match, {rms_delta_db:.2f} dB delta)", cosine_sim, rms_delta_db
 
-def sync_directories(src_dir, dst_dir, vehicle_filter=None, threshold=0.985, max_rms_delta=3.5, force=False, dry_run=False):
+def normalize_wav_file(file_path, target_rms_db=-12.0, target_peak_db=-1.0):
+    """
+    Normalizes a WAV file in-place using active RMS loudness targeting and soft-knee
+    peak limiting while preserving RIFF/smpl loop metadata chunks.
+    """
+    try:
+        with open(file_path, 'rb') as f:
+            data = f.read()
+        if len(data) < 12 or data[:4] != b'RIFF' or data[8:12] != b'WAVE':
+            return False
+
+        # Parse RIFF chunks
+        pos = 12
+        chunks = []
+        fmt_chunk = None
+        data_idx = -1
+        while pos + 8 <= len(data):
+            chunk_id = data[pos:pos+4]
+            chunk_size = int.from_bytes(data[pos+4:pos+8], 'little')
+            chunk_data_start = pos + 8
+            chunk_data_end = chunk_data_start + chunk_size
+            chunk_data = data[chunk_data_start:chunk_data_end]
+            if chunk_id == b'fmt ':
+                fmt_chunk = chunk_data
+            if chunk_id == b'data':
+                data_idx = len(chunks)
+            chunks.append((chunk_id, chunk_data))
+            pos = chunk_data_end + (1 if chunk_size % 2 == 1 else 0)
+
+        if fmt_chunk is None or data_idx == -1:
+            return False
+
+        audio_format = int.from_bytes(fmt_chunk[0:2], 'little')
+        bits_per_sample = int.from_bytes(fmt_chunk[14:16], 'little')
+
+        if audio_format != 1 or bits_per_sample != 16:
+            return False
+
+        raw_pcm = chunks[data_idx][1]
+        samples = np.frombuffer(raw_pcm, dtype=np.int16).astype(np.float32) / 32768.0
+        if len(samples) == 0:
+            return False
+
+        max_val = float(np.max(np.abs(samples)))
+        if max_val <= 1e-6:
+            return False
+
+        target_peak = 10.0 ** (target_peak_db / 20.0)
+        target_rms = 10.0 ** (target_rms_db / 20.0)
+
+        # Active RMS calculation (ignore low-energy noise / silent tails)
+        threshold = max_val * 0.01
+        active = samples[np.abs(samples) >= threshold]
+        if len(active) == 0:
+            active = samples
+        active_rms = float(np.sqrt(np.mean(active ** 2)))
+
+        gain = target_rms / max(1e-6, active_rms)
+        if gain * max_val > target_peak * 3.0:
+            gain = (target_peak * 3.0) / max_val
+
+        # Soft-knee saturation limiter for smooth peak control
+        knee = 0.75 * target_peak
+        delta = target_peak - knee
+
+        x = samples * gain
+        abs_x = np.abs(x)
+        over = abs_x > knee
+        compressed = np.copy(x)
+        if np.any(over):
+            compressed[over] = np.sign(x[over]) * (knee + delta * np.tanh((abs_x[over] - knee) / delta))
+
+        pcm16 = np.clip(np.round(compressed * 32767.0), -32768, 32767).astype(np.int16)
+        new_data_bytes = pcm16.tobytes()
+
+        # Check if already normalized
+        if new_data_bytes == raw_pcm:
+            return False
+
+        chunks[data_idx] = (b'data', new_data_bytes)
+        out = bytearray(b'RIFF\x00\x00\x00\x00WAVE')
+        for cid, cdata in chunks:
+            out.extend(cid)
+            out.extend(len(cdata).to_bytes(4, 'little'))
+            out.extend(cdata)
+            if len(cdata) % 2 == 1:
+                out.extend(b'\x00')
+
+        file_size = len(out) - 8
+        out[4:8] = file_size.to_bytes(4, 'little')
+
+        with open(file_path, 'wb') as f:
+            f.write(out)
+        return True
+    except Exception:
+        return False
+
+def sync_directories(src_dir, dst_dir, vehicle_filter=None, threshold=0.985, max_rms_delta=3.5, force=False, dry_run=False, normalize=True):
     """Syncs audio from src_dir to dst_dir, skipping perceptually identical files."""
     if not os.path.exists(src_dir):
         print(f"Error: Source directory '{src_dir}' not found.")
@@ -159,6 +256,8 @@ def sync_directories(src_dir, dst_dir, vehicle_filter=None, threshold=0.985, max
     print(f" Vehicles:      {len(vehicles)} vehicle(s)")
     print(f" Spectral Tol:  {threshold * 100:.1f}% cosine similarity")
     print(f" Max RMS Delta: {max_rms_delta:.1f} dB")
+    if normalize:
+        print(" Normalization: Active RMS targeting (-12 dBFS) + soft-knee peak limiter")
     if force:
         print(" Mode:          FORCE OVERWRITE ALL")
     elif dry_run:
@@ -184,6 +283,9 @@ def sync_directories(src_dir, dst_dir, vehicle_filter=None, threshold=0.985, max
             total_files += 1
             src_file = os.path.join(v_src, wf)
             dst_file = os.path.join(v_dst, wf)
+
+            if normalize and not dry_run:
+                normalize_wav_file(src_file)
 
             if force or not os.path.exists(dst_file):
                 is_match = False
@@ -237,6 +339,7 @@ def main():
     parser.add_argument("--vehicle", default=None, help="Sync specific vehicle only (e.g. 'stratus')")
     parser.add_argument("--threshold", type=float, default=0.985, help="Similarity threshold (0.0 to 1.0, default 0.985)")
     parser.add_argument("--max-rms-delta", type=float, default=3.5, help="Max RMS delta in dB (default 3.5 dB)")
+    parser.add_argument("--no-normalize", dest="normalize", action="store_false", help="Disable active RMS loudness normalization")
     parser.add_argument("--force", action="store_true", help="Force overwrite all files regardless of match")
     parser.add_argument("--dry-run", action="store_true", help="Perform comparison without copying files")
 
@@ -248,7 +351,8 @@ def main():
         threshold=args.threshold,
         max_rms_delta=args.max_rms_delta,
         force=args.force,
-        dry_run=args.dry_run
+        dry_run=args.dry_run,
+        normalize=args.normalize
     )
 
 if __name__ == "__main__":

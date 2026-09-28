@@ -37,10 +37,47 @@ void WavWriter::normalizeAudio(std::vector<float> &audioSamples, float targetPea
     if (maxVal <= 1e-6f) return;
 
     const float targetPeak = std::pow(10.0f, targetPeakDbfs / 20.0f);
-    const float gain = targetPeak / maxVal;
+
+    // Calculate active RMS (samples above -40 dB relative to peak to avoid silence skew)
+    const float threshold = maxVal * 0.01f;
+    double sumSq = 0.0;
+    size_t count = 0;
+    for (float sample : audioSamples) {
+        if (std::abs(sample) >= threshold) {
+            sumSq += static_cast<double>(sample) * sample;
+            count++;
+        }
+    }
+    if (count == 0) {
+        for (float sample : audioSamples) {
+            sumSq += static_cast<double>(sample) * sample;
+        }
+        count = audioSamples.size();
+    }
+    const float activeRms = static_cast<float>(std::sqrt(sumSq / std::max<size_t>(1, count)));
+
+    // Target RMS: -12.0 dBFS (~0.2512) for consistent punchy engine audio across vehicles
+    constexpr float targetRms = 0.25118864f;
+    float gain = targetRms / std::max(1e-6f, activeRms);
+
+    // Bound maximum gain to prevent over-compressing signals with extreme crest factor
+    if (gain * maxVal > targetPeak * 3.0f) {
+        gain = (targetPeak * 3.0f) / maxVal;
+    }
+
+    // Apply gain with transparent soft-knee peak limiting to strictly adhere to targetPeak
+    const float knee = 0.75f * targetPeak;
+    const float delta = targetPeak - knee;
 
     for (float &sample : audioSamples) {
-        sample *= gain;
+        float x = sample * gain;
+        float absX = std::abs(x);
+        if (absX > knee) {
+            float compressed = knee + delta * std::tanh((absX - knee) / delta);
+            sample = (x >= 0.0f) ? compressed : -compressed;
+        } else {
+            sample = x;
+        }
     }
 }
 
