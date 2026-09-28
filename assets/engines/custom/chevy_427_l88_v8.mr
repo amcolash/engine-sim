@@ -168,7 +168,7 @@ public node chevy_427_l88_v8 {
         moment_of_inertia: 0.22,
         position_x: 0.0,
         position_y: 0.0,
-        tdc: 90 * units.deg + (v_angle / 2.0)
+        tdc: 90 * units.deg - (v_angle / 2.0)
     )
 
     // Classic Chevy 90-deg Crossplane Journals

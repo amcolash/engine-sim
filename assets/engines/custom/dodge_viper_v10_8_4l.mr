@@ -170,24 +170,19 @@ public node dodge_viper_v10_8_4l {
         throw: stroke / 2.0,
         flywheel_mass: flywheel_mass,
         mass: crank_mass,
-        friction_torque: 8.0 * units.lb_ft,
+        friction_torque: 14.0 * units.lb_ft,
         moment_of_inertia: 0.22,
         position_x: 0.0,
         position_y: 0.0,
-        tdc: 90 * units.deg + (v_angle / 2.0)
+        tdc: 90 * units.deg - (v_angle / 2.0)
     )
 
-    // Dodge Viper 90-deg V10 18-deg split pins
+    // Dodge Viper 90-deg V10 Shared Journals
     rod_journal rj0(angle: 0 * units.deg)
-    rod_journal rj1(angle: 18 * units.deg)
-    rod_journal rj2(angle: 288 * units.deg)
-    rod_journal rj3(angle: 306 * units.deg)
-    rod_journal rj4(angle: 216 * units.deg)
-    rod_journal rj5(angle: 234 * units.deg)
-    rod_journal rj6(angle: 144 * units.deg)
-    rod_journal rj7(angle: 162 * units.deg)
-    rod_journal rj8(angle: 72 * units.deg)
-    rod_journal rj9(angle: 90 * units.deg)
+    rod_journal rj1(angle: 288 * units.deg)
+    rod_journal rj2(angle: 72 * units.deg)
+    rod_journal rj3(angle: 216 * units.deg)
+    rod_journal rj4(angle: 144 * units.deg)
 
     c0
         .add_rod_journal(rj0)
@@ -195,11 +190,6 @@ public node dodge_viper_v10_8_4l {
         .add_rod_journal(rj2)
         .add_rod_journal(rj3)
         .add_rod_journal(rj4)
-        .add_rod_journal(rj5)
-        .add_rod_journal(rj6)
-        .add_rod_journal(rj7)
-        .add_rod_journal(rj8)
-        .add_rod_journal(rj9)
 
     piston_parameters piston_params(
         mass: piston_mass,
@@ -224,8 +214,8 @@ public node dodge_viper_v10_8_4l {
         intake_flow_rate: k_carb(1300.0),
         runner_flow_rate: k_carb(500.0),
         runner_length: 7.0 * units.inch,
-        idle_flow_rate: k_carb(0.009),
-        idle_throttle_plate_position: 0.995,
+        idle_flow_rate: k_carb(0.004),
+        idle_throttle_plate_position: 0.996,
         velocity_decay: 0.5
     )
 
@@ -272,7 +262,7 @@ public node dodge_viper_v10_8_4l {
         .add_cylinder(
             piston: piston(piston_params, blowby: k_28inH2O(0.08)),
             connecting_rod: connecting_rod(cr_params),
-            rod_journal: rj2,
+            rod_journal: rj1,
             intake: intake,
             exhaust_system: exhaust0,
             ignition_wire: wires.wire3,
@@ -281,7 +271,7 @@ public node dodge_viper_v10_8_4l {
         .add_cylinder(
             piston: piston(piston_params, blowby: k_28inH2O(0.08)),
             connecting_rod: connecting_rod(cr_params),
-            rod_journal: rj4,
+            rod_journal: rj2,
             intake: intake,
             exhaust_system: exhaust0,
             ignition_wire: wires.wire5,
@@ -290,7 +280,7 @@ public node dodge_viper_v10_8_4l {
         .add_cylinder(
             piston: piston(piston_params, blowby: k_28inH2O(0.08)),
             connecting_rod: connecting_rod(cr_params),
-            rod_journal: rj6,
+            rod_journal: rj3,
             intake: intake,
             exhaust_system: exhaust0,
             ignition_wire: wires.wire7,
@@ -299,7 +289,7 @@ public node dodge_viper_v10_8_4l {
         .add_cylinder(
             piston: piston(piston_params, blowby: k_28inH2O(0.08)),
             connecting_rod: connecting_rod(cr_params),
-            rod_journal: rj8,
+            rod_journal: rj4,
             intake: intake,
             exhaust_system: exhaust0,
             ignition_wire: wires.wire9,
@@ -310,7 +300,7 @@ public node dodge_viper_v10_8_4l {
         .add_cylinder(
             piston: piston(piston_params, blowby: k_28inH2O(0.08)),
             connecting_rod: connecting_rod(cr_params),
-            rod_journal: rj1,
+            rod_journal: rj0,
             intake: intake,
             exhaust_system: exhaust1,
             ignition_wire: wires.wire2,
@@ -319,7 +309,7 @@ public node dodge_viper_v10_8_4l {
         .add_cylinder(
             piston: piston(piston_params, blowby: k_28inH2O(0.08)),
             connecting_rod: connecting_rod(cr_params),
-            rod_journal: rj3,
+            rod_journal: rj1,
             intake: intake,
             exhaust_system: exhaust1,
             ignition_wire: wires.wire4,
@@ -328,7 +318,7 @@ public node dodge_viper_v10_8_4l {
         .add_cylinder(
             piston: piston(piston_params, blowby: k_28inH2O(0.08)),
             connecting_rod: connecting_rod(cr_params),
-            rod_journal: rj5,
+            rod_journal: rj2,
             intake: intake,
             exhaust_system: exhaust1,
             ignition_wire: wires.wire6,
@@ -337,7 +327,7 @@ public node dodge_viper_v10_8_4l {
         .add_cylinder(
             piston: piston(piston_params, blowby: k_28inH2O(0.08)),
             connecting_rod: connecting_rod(cr_params),
-            rod_journal: rj7,
+            rod_journal: rj3,
             intake: intake,
             exhaust_system: exhaust1,
             ignition_wire: wires.wire8,
@@ -346,7 +336,7 @@ public node dodge_viper_v10_8_4l {
         .add_cylinder(
             piston: piston(piston_params, blowby: k_28inH2O(0.08)),
             connecting_rod: connecting_rod(cr_params),
-            rod_journal: rj9,
+            rod_journal: rj4,
             intake: intake,
             exhaust_system: exhaust1,
             ignition_wire: wires.wire10,

@@ -164,24 +164,24 @@ public node lamborghini_v10_5_2l {
         throw: stroke / 2.0,
         flywheel_mass: flywheel_mass,
         mass: crank_mass,
-        friction_torque: 6.0 * units.lb_ft,
+        friction_torque: 8.0 * units.lb_ft,
         moment_of_inertia: 0.12,
         position_x: 0.0,
         position_y: 0.0,
         tdc: 90 * units.deg + (v_angle / 2.0)
     )
 
-    // 18-deg split-pin crankshaft on 90-deg V10
+    // 18-deg split-pin crankshaft on 90-deg V10 (Even-fire 72 deg)
     rod_journal rj0(angle: 0 * units.deg)
-    rod_journal rj1(angle: 18 * units.deg)
+    rod_journal rj1(angle: 342 * units.deg)
     rod_journal rj2(angle: 288 * units.deg)
-    rod_journal rj3(angle: 306 * units.deg)
-    rod_journal rj4(angle: 216 * units.deg)
-    rod_journal rj5(angle: 234 * units.deg)
-    rod_journal rj6(angle: 144 * units.deg)
-    rod_journal rj7(angle: 162 * units.deg)
-    rod_journal rj8(angle: 72 * units.deg)
-    rod_journal rj9(angle: 90 * units.deg)
+    rod_journal rj3(angle: 270 * units.deg)
+    rod_journal rj4(angle: 72 * units.deg)
+    rod_journal rj5(angle: 54 * units.deg)
+    rod_journal rj6(angle: 216 * units.deg)
+    rod_journal rj7(angle: 198 * units.deg)
+    rod_journal rj8(angle: 144 * units.deg)
+    rod_journal rj9(angle: 126 * units.deg)
 
     c0
         .add_rod_journal(rj0)
@@ -218,8 +218,8 @@ public node lamborghini_v10_5_2l {
         intake_flow_rate: k_carb(1300.0),
         runner_flow_rate: k_carb(480.0),
         runner_length: 5.0 * units.inch,
-        idle_flow_rate: k_carb(0.007),
-        idle_throttle_plate_position: 0.997,
+        idle_flow_rate: k_carb(0.0),
+        idle_throttle_plate_position: 0.998,
         velocity_decay: 0.5
     )
 
@@ -250,8 +250,8 @@ public node lamborghini_v10_5_2l {
 
     label spacing(3.6 * units.inch)
 
-    cylinder_bank b0(bank_params, angle: -v_angle / 2.0)
-    cylinder_bank b1(bank_params, angle: v_angle / 2.0)
+    cylinder_bank b0(bank_params, angle: v_angle / 2.0)
+    cylinder_bank b1(bank_params, angle: -v_angle / 2.0)
 
     b0
         .add_cylinder(

@@ -154,7 +154,7 @@ public node porsche_tt_flat6_3_8l {
         throw: stroke / 2.0,
         flywheel_mass: flywheel_mass,
         mass: crank_mass,
-        friction_torque: 6.0 * units.lb_ft,
+        friction_torque: 8.0 * units.lb_ft,
         moment_of_inertia: 0.12,
         position_x: 0.0,
         position_y: 0.0,
@@ -200,8 +200,8 @@ public node porsche_tt_flat6_3_8l {
         intake_flow_rate: k_carb(1200.0),
         runner_flow_rate: k_carb(480.0),
         runner_length: 5.5 * units.inch,
-        idle_flow_rate: k_carb(0.007),
-        idle_throttle_plate_position: 0.996,
+        idle_flow_rate: k_carb(0.0),
+        idle_throttle_plate_position: 0.998,
         velocity_decay: 0.5
     )
 
@@ -232,8 +232,8 @@ public node porsche_tt_flat6_3_8l {
 
     label spacing(4.4 * units.inch)
 
-    cylinder_bank b0(bank_params, angle: -v_angle / 2.0)
-    cylinder_bank b1(bank_params, angle: v_angle / 2.0)
+    cylinder_bank b0(bank_params, angle: v_angle / 2.0)
+    cylinder_bank b1(bank_params, angle: -v_angle / 2.0)
 
     b0
         .add_cylinder(

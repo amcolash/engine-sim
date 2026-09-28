@@ -143,7 +143,7 @@ public node nissan_rb26dett_i6 {
         throw: stroke / 2.0,
         flywheel_mass: flywheel_mass,
         mass: crank_mass,
-        friction_torque: 5.0 * units.lb_ft,
+        friction_torque: 8.0 * units.lb_ft,
         moment_of_inertia: 0.10,
         position_x: 0.0,
         position_y: 0.0,
@@ -152,10 +152,10 @@ public node nissan_rb26dett_i6 {
 
     // Standard I6 120-deg journals
     rod_journal rj0(angle: 0 * units.deg)
-    rod_journal rj1(angle: 240 * units.deg)
-    rod_journal rj2(angle: 120 * units.deg)
-    rod_journal rj3(angle: 120 * units.deg)
-    rod_journal rj4(angle: 240 * units.deg)
+    rod_journal rj1(angle: 120 * units.deg)
+    rod_journal rj2(angle: 240 * units.deg)
+    rod_journal rj3(angle: 240 * units.deg)
+    rod_journal rj4(angle: 120 * units.deg)
     rod_journal rj5(angle: 0 * units.deg)
 
     c0
@@ -189,8 +189,8 @@ public node nissan_rb26dett_i6 {
         intake_flow_rate: k_carb(1000.0),
         runner_flow_rate: k_carb(380.0),
         runner_length: 6.0 * units.inch,
-        idle_flow_rate: k_carb(0.006),
-        idle_throttle_plate_position: 0.997,
+        idle_flow_rate: k_carb(0.0),
+        idle_throttle_plate_position: 0.998,
         velocity_decay: 0.5
     )
 

@@ -24,10 +24,10 @@ private node v12_60_head {
     input intake_camshaft;
     input exhaust_camshaft;
     input chamber_volume: 450 * units.cc;
-    input intake_runner_volume: 149.6 * units.cc;
-    input intake_runner_cross_section_area: 2.0 * units.inch * 2.0 * units.inch;
-    input exhaust_runner_volume: 50.0 * units.cc;
-    input exhaust_runner_cross_section_area: 5.0 * units.inch * 3.0 * units.inch;
+    input intake_runner_volume: 600.0 * units.cc;
+    input intake_runner_cross_section_area: 3.0 * units.inch * 3.0 * units.inch;
+    input exhaust_runner_volume: 500.0 * units.cc;
+    input exhaust_runner_cross_section_area: 2.5 * units.inch * 2.5 * units.inch;
 
     input flow_attenuation: 1.0;
     input lift_scale: 1.0;
@@ -37,7 +37,7 @@ private node v12_60_head {
     function intake_flow(50 * units.thou)
     intake_flow
         .add_flow_sample(0 * lift_scale, 0 * flow_attenuation)
-        .add_flow_sample(50 * lift_scale, 58 * flow_attenuation)
+        .add_flow_sample(50 * lift_scale, 2 * flow_attenuation)
         .add_flow_sample(100 * lift_scale, 103 * flow_attenuation)
         .add_flow_sample(150 * lift_scale, 156 * flow_attenuation)
         .add_flow_sample(200 * lift_scale, 214 * flow_attenuation)
@@ -50,7 +50,7 @@ private node v12_60_head {
     function exhaust_flow(50 * units.thou)
     exhaust_flow
         .add_flow_sample(0 * lift_scale, 0 * flow_attenuation)
-        .add_flow_sample(50 * lift_scale, 37 * flow_attenuation)
+        .add_flow_sample(50 * lift_scale, 2 * flow_attenuation)
         .add_flow_sample(100 * lift_scale, 72 * flow_attenuation)
         .add_flow_sample(150 * lift_scale, 113 * flow_attenuation)
         .add_flow_sample(200 * lift_scale, 160 * flow_attenuation)
@@ -143,20 +143,20 @@ public node merlin_v12 {
 
     engine engine(
         name: "Merlin V-1650-9 [V12] (NA)",
-        starter_torque: 190 * units.lb_ft,
-        starter_speed: 200 * units.rpm,
+        starter_torque: 450 * units.lb_ft,
+        starter_speed: 150 * units.rpm,
         redline: 3000 * units.rpm,
         fuel: fuel(
             max_turbulence_effect: 10.0,
             max_dilution_effect: 5.0,
-            burning_efficiency_randomness: 0.1,
+            burning_efficiency_randomness: 0.0,
             max_burning_efficiency: 1.0
         ),
         throttle_gamma: 2.0,
-        simulation_frequency: 7000,
-        hf_gain: 0.004,
-        noise: 0.35,
-        jitter: 0.229
+        simulation_frequency: 10000,
+        hf_gain: 0.01,
+        noise: 0.4,
+        jitter: 0.2
     )
 
     wires wires()
@@ -224,34 +224,34 @@ public node merlin_v12 {
     )
 
     intake intake(
-        plenum_volume: 1.325 * units.L,
-        plenum_cross_section_area: 20.0 * units.cm2,
-        intake_flow_rate: k_carb(1400.0),
-        runner_flow_rate: k_carb(200.0),
-        runner_length: 16.0 * units.inch,
+        plenum_volume: 12.0 * units.L,
+        plenum_cross_section_area: 50.0 * units.cm2,
+        intake_flow_rate: k_carb(2500.0),
+        runner_flow_rate: k_carb(600.0),
+        runner_length: 12.0 * units.inch,
         idle_flow_rate: k_carb(0.0),
-        idle_throttle_plate_position: 0.99,
+        idle_throttle_plate_position: 0.996,
         velocity_decay: 0.5
     )
 
     exhaust_system_parameters es_params(
-        outlet_flow_rate: k_carb(2000.0),
-        primary_tube_length: 50.0 * units.inch,
-        primary_flow_rate: k_carb(400.0),
-        velocity_decay: 1.0
+        outlet_flow_rate: k_carb(3000.0),
+        primary_tube_length: 20.0 * units.inch,
+        primary_flow_rate: k_carb(600.0),
+        velocity_decay: 0.8
     )
 
     exhaust_system exhaust0(
         es_params,
-        length: 30 * units.inch,
-        audio_volume: 1.0 * 0.5,
-        impulse_response: ir_lib.minimal_muffling_01
+        length: 50 * units.inch,
+        audio_volume: 3.5,
+        impulse_response: ir_lib.default_0
     )
     exhaust_system exhaust1(
         es_params,
-        length: 70 * units.inch,
-        audio_volume: 1.0 * 0.5,
-        impulse_response: ir_lib.minimal_muffling_01
+        length: 50 * units.inch,
+        audio_volume: 3.5,
+        impulse_response: ir_lib.default_0
     )
 
     cylinder_bank_parameters bank_params(
@@ -259,23 +259,23 @@ public node merlin_v12 {
         deck_height: stroke / 2 + rod_length + compression_height
     )
 
-    label spacing(6 * units.inch)
+    label spacing(3 * units.inch)
 
     cylinder_bank b0(bank_params, angle: (60 / 2.0) * units.deg)
     cylinder_bank b1(bank_params, angle: -(60 / 2.0) * units.deg)
     b0
         .add_cylinder(
-            piston: piston(piston_params, blowby: k_28inH2O(0.7)),
+            piston: piston(piston_params, blowby: k_28inH2O(0.0)),
             connecting_rod: connecting_rod(cr_params),
             rod_journal: rj0,
             intake: intake,
             exhaust_system: exhaust1,
             ignition_wire: wires.wire1a,
-            sound_attenuation: 0.9,
+            sound_attenuation: 1.0,
             primary_length: spacing * 6
         )
         .add_cylinder(
-            piston: piston(piston_params, blowby: k_28inH2O(0.1)),
+            piston: piston(piston_params, blowby: k_28inH2O(0.0)),
             connecting_rod: connecting_rod(cr_params),
             rod_journal: rj1,
             intake: intake,
@@ -285,37 +285,37 @@ public node merlin_v12 {
             primary_length: spacing * 5
         )
         .add_cylinder(
-            piston: piston(piston_params, blowby: k_28inH2O(0.4)),
+            piston: piston(piston_params, blowby: k_28inH2O(0.0)),
             connecting_rod: connecting_rod(cr_params),
             rod_journal: rj2,
             intake: intake,
             exhaust_system: exhaust1,
             ignition_wire: wires.wire3a,
-            sound_attenuation: 1.5,
+            sound_attenuation: 1.0,
             primary_length: spacing * 4
         )
         .add_cylinder(
-            piston: piston(piston_params, blowby: k_28inH2O(0.3)),
+            piston: piston(piston_params, blowby: k_28inH2O(0.0)),
             connecting_rod: connecting_rod(cr_params),
             rod_journal: rj3,
             intake: intake,
             exhaust_system: exhaust1,
             ignition_wire: wires.wire4a,
-            sound_attenuation: 0.9,
+            sound_attenuation: 1.0,
             primary_length: spacing * 3
         )
         .add_cylinder(
-            piston: piston(piston_params, blowby: k_28inH2O(0.2)),
+            piston: piston(piston_params, blowby: k_28inH2O(0.0)),
             connecting_rod: connecting_rod(cr_params),
             rod_journal: rj4,
             intake: intake,
             exhaust_system: exhaust1,
             ignition_wire: wires.wire5a,
-            sound_attenuation: 0.8,
+            sound_attenuation: 1.0,
             primary_length: spacing * 2
         )
         .add_cylinder(
-            piston: piston(piston_params, blowby: k_28inH2O(0.1)),
+            piston: piston(piston_params, blowby: k_28inH2O(0.0)),
             connecting_rod: connecting_rod(cr_params),
             rod_journal: rj5,
             intake: intake,
@@ -333,27 +333,27 @@ public node merlin_v12 {
         )
     b1
         .add_cylinder(
-            piston: piston(piston_params, blowby: k_28inH2O(0.5)),
+            piston: piston(piston_params, blowby: k_28inH2O(0.0)),
             connecting_rod: connecting_rod(cr_params),
             rod_journal: rj0,
             intake: intake,
             exhaust_system: exhaust0,
             ignition_wire: wires.wire1b,
-            sound_attenuation: 0.9,
+            sound_attenuation: 1.0,
             primary_length: spacing * 6
         )
         .add_cylinder(
-            piston: piston(piston_params, blowby: k_28inH2O(0.2)),
+            piston: piston(piston_params, blowby: k_28inH2O(0.0)),
             connecting_rod: connecting_rod(cr_params),
             rod_journal: rj1,
             intake: intake,
             exhaust_system: exhaust0,
             ignition_wire: wires.wire2b,
-            sound_attenuation: 1.1,
+            sound_attenuation: 1.0,
             primary_length: spacing * 5
         )
         .add_cylinder(
-            piston: piston(piston_params, blowby: k_28inH2O(0.1)),
+            piston: piston(piston_params, blowby: k_28inH2O(0.0)),
             connecting_rod: connecting_rod(cr_params),
             rod_journal: rj2,
             intake: intake,
@@ -362,27 +362,27 @@ public node merlin_v12 {
             primary_length: spacing * 4
         )
         .add_cylinder(
-            piston: piston(piston_params, blowby: k_28inH2O(0.3)),
+            piston: piston(piston_params, blowby: k_28inH2O(0.0)),
             connecting_rod: connecting_rod(cr_params),
             rod_journal: rj3,
             intake: intake,
             exhaust_system: exhaust0,
             ignition_wire: wires.wire4b,
-            sound_attenuation: 1.1,
+            sound_attenuation: 1.0,
             primary_length: spacing * 3
         )
         .add_cylinder(
-            piston: piston(piston_params, blowby: k_28inH2O(0.2)),
+            piston: piston(piston_params, blowby: k_28inH2O(0.0)),
             connecting_rod: connecting_rod(cr_params),
             rod_journal: rj4,
             intake: intake,
             exhaust_system: exhaust0,
             ignition_wire: wires.wire5b,
-            sound_attenuation: 0.7,
+            sound_attenuation: 1.0,
             primary_length: spacing * 2
         )
         .add_cylinder(
-            piston: piston(piston_params, blowby: k_28inH2O(0.1)),
+            piston: piston(piston_params, blowby: k_28inH2O(0.0)),
             connecting_rod: connecting_rod(cr_params),
             rod_journal: rj5,
             intake: intake,
@@ -405,16 +405,16 @@ public node merlin_v12 {
 
     harmonic_cam_lobe intake_lobe(
         duration_at_50_thou: 242 * units.deg,
-        gamma: 0.8,
+        gamma: 1.0,
         lift: 15.95 * units.mm,
-        steps: 100
+        steps: 256
     )
 
     harmonic_cam_lobe exhaust_lobe(
         duration_at_50_thou: 246 * units.deg,
-        gamma: 0.8,
+        gamma: 1.0,
         lift: 590 * units.thou,
-        steps: 100
+        steps: 256
     )
 
     v12_60_camshaft camshaft(

@@ -164,11 +164,11 @@ public node chrysler_hemi_392_v8 {
         throw: stroke / 2.0,
         flywheel_mass: flywheel_mass,
         mass: crank_mass,
-        friction_torque: 8.0 * units.lb_ft,
+        friction_torque: 10.0 * units.lb_ft,
         moment_of_inertia: 0.20,
         position_x: 0.0,
         position_y: 0.0,
-        tdc: 90 * units.deg + (v_angle / 2.0)
+        tdc: 90 * units.deg - (v_angle / 2.0)
     )
 
     rod_journal rj0(angle: 0 * units.deg)
@@ -205,8 +205,8 @@ public node chrysler_hemi_392_v8 {
         intake_flow_rate: k_carb(900.0),
         runner_flow_rate: k_carb(350.0),
         runner_length: 7.0 * units.inch,
-        idle_flow_rate: k_carb(0.008),
-        idle_throttle_plate_position: 0.995,
+        idle_flow_rate: k_carb(0.003),
+        idle_throttle_plate_position: 0.997,
         velocity_decay: 0.5
     )
 
