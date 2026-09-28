@@ -72,16 +72,36 @@ You will need to install the following dependencies and CMake will need to be ab
     4. Flex and Bison
 
 ### Step 4 - Build and Run
-From the root directory of the project, run the following commands:
+From the root directory of the project, build and run using `just`:
 
+```bash
+# Build the project
+just build
+
+# Run the interactive simulation GUI
+just run
 ```
+
+Alternatively, you can build manually with CMake:
+```bash
 mkdir build
 cd build
 cmake ..
 cmake --build .
 ```
 
-If these steps are successful, a Visual Studio solution will be generated in ```build```. You can open this project with Visual Studio and then run the ```engine-sim-app``` project. If you encounter an error telling you that you're missing DLLs, you will have to copy those DLLs to your EXE's directory.
+If these steps are successful, a build directory will be generated in ```build```. You can open this project or run the ```./build/engine-sim-app``` executable.
+
+## Audio Export Pipeline
+
+Engine-sim includes a headless batch audio exporter and sync pipeline for generating steady RPM audio loops with embedded loop markers (`smpl` chunks) and transient SFX (`engine_start`, `rev_blip`, `rev_limiter`, `decel_crackle`) from engine simulation scripts.
+
+For detailed documentation on recipe configuration, SFX generation mechanics, RMS loudness normalization, and perceptual diff synchronization, see **[`docs/AUDIO_PIPELINE.md`](docs/AUDIO_PIPELINE.md)**.
+
+### Quick Commands (via `just`)
+- `just export-audio`: Export all vehicles in `recipes/game_vehicles.json` and sync.
+- `just export-sfx <type> [--vehicle <id>]`: Export specific SFX (`engine_start`, `rev_blip`, `rev_limiter`, `decel_crackle`, `all`).
+- `just sync-audio`: Normalize and sync audio to game repository with perceptual acoustic diffing.
 
 ## Patreon Supporters
 
