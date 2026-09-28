@@ -113,3 +113,70 @@ ExportRecipe ExportRecipe::createDefaultSingleEngine(const std::string &scriptPa
     return recipe;
 }
 
+bool ExportRecipe::applySfxFilter(const std::string &sfxFilterStr, std::string &errorMessage) {
+    if (sfxFilterStr.empty()) return true;
+
+    std::stringstream ss(sfxFilterStr);
+    std::string token;
+    std::vector<std::string> tokens;
+    while (std::getline(ss, token, ',')) {
+        size_t start = token.find_first_not_of(" \t\r\n");
+        size_t end = token.find_last_not_of(" \t\r\n");
+        if (start != std::string::npos && end != std::string::npos) {
+            std::string t = token.substr(start, end - start + 1);
+            for (char &c : t) c = std::tolower(c);
+            tokens.push_back(t);
+        }
+    }
+
+    if (tokens.empty()) return true;
+
+    bool enableStarter = false;
+    bool enableRevLimiter = false;
+    bool enableRevBlip = false;
+    bool enableDecelCrackle = false;
+
+    for (const auto &t : tokens) {
+        if (t == "decel_crackle" || t == "decel" || t == "crackle" || t == "decel-crackle") {
+            enableDecelCrackle = true;
+        } else if (t == "engine_start" || t == "starter" || t == "start" || t == "starter_crank" || t == "engine-start") {
+            enableStarter = true;
+        } else if (t == "rev_blip" || t == "blip" || t == "rev-blip" || t == "throttle_blip" || t == "throttle-blip") {
+            enableRevBlip = true;
+        } else if (t == "rev_limiter" || t == "limiter" || t == "rev-limiter") {
+            enableRevLimiter = true;
+        } else if (t == "all" || t == "transients" || t == "sfx") {
+            enableStarter = true;
+            enableRevLimiter = true;
+            enableRevBlip = true;
+            enableDecelCrackle = true;
+        } else {
+            errorMessage = "Unknown SFX type: '" + t + "'. Supported types: decel_crackle, engine_start, rev_blip, rev_limiter, all";
+            return false;
+        }
+    }
+
+    for (auto &vc : vehicles) {
+        vc.exportProfile.exportSteadyRpm = false;
+        vc.exportProfile.exportStarter = enableStarter;
+        vc.exportProfile.exportRevLimiter = enableRevLimiter;
+        vc.exportProfile.exportRevBlip = enableRevBlip;
+        vc.exportProfile.exportDecelCrackle = enableDecelCrackle;
+    }
+
+    return true;
+}
+
+bool ExportRecipe::filterVehicles(const std::string &vehicleId) {
+    if (vehicleId.empty()) return true;
+    std::vector<VehicleExportConfig> filtered;
+    for (const auto &vc : vehicles) {
+        if (strcasecmp(vc.id.c_str(), vehicleId.c_str()) == 0) {
+            filtered.push_back(vc);
+        }
+    }
+    if (filtered.empty()) return false;
+    vehicles = std::move(filtered);
+    return true;
+}
+

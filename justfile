@@ -35,6 +35,11 @@ sync-audio *ARGS:
 export-fast *ARGS: build
     nix develop -c ./build/engine-sim-app --export-audio recipes/fast_test.json {{ARGS}}
 
+# Export specific SFX only (e.g. decel_crackle, engine_start, rev_blip, rev_limiter, all) and intelligently sync
+export-sfx SFX *ARGS: build
+    nix develop -c ./build/engine-sim-app --export-audio recipes/game_vehicles.json --sfx {{SFX}} {{ARGS}}
+    python3 scripts/sync_audio.py
+
 # Export rev-blip test
 export-blip *ARGS: build
     nix develop -c ./build/engine-sim-app --export-audio recipes/rev_blip.json {{ARGS}}

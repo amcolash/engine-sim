@@ -529,6 +529,39 @@ void AudioExporter::writeManifest(
     }
     j["transients"] = transientsArray;
 
+    // Merge with existing manifest if available to avoid overwriting unexported loops or transients
+    if (std::filesystem::exists(manifestPath)) {
+        try {
+            std::ifstream in(manifestPath);
+            if (in.is_open()) {
+                json existingJ;
+                in >> existingJ;
+                if (loops.empty() && existingJ.contains("steady_loops")) {
+                    j["steady_loops"] = existingJ["steady_loops"];
+                }
+                if (transients.empty() && existingJ.contains("transients")) {
+                    j["transients"] = existingJ["transients"];
+                } else if (!transients.empty() && existingJ.contains("transients")) {
+                    json mergedTransients = existingJ["transients"];
+                    for (const auto &newTr : transientsArray) {
+                        bool found = false;
+                        for (auto &existingTr : mergedTransients) {
+                            if (existingTr.contains("type") && existingTr["type"] == newTr["type"]) {
+                                existingTr = newTr;
+                                found = true;
+                                break;
+                            }
+                        }
+                        if (!found) {
+                            mergedTransients.push_back(newTr);
+                        }
+                    }
+                    j["transients"] = mergedTransients;
+                }
+            }
+        } catch (...) {}
+    }
+
     std::ofstream out(manifestPath);
     if (out.is_open()) {
         out << j.dump(2) << std::endl;

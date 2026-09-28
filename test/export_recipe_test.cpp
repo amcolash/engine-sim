@@ -32,3 +32,38 @@ TEST(ExportRecipeTests, CreateDefaultSingleEngine) {
     EXPECT_EQ(recipe.vehicles[0].exportProfile.rpmStep, 250);
 }
 
+TEST(ExportRecipeTests, ApplySfxFilter) {
+    ExportRecipe recipe;
+    std::string err;
+    bool success = ExportRecipe::loadFromFile("recipes/game_vehicles.json", recipe, err);
+    EXPECT_TRUE(success);
+
+    // Apply decel_crackle filter
+    EXPECT_TRUE(recipe.applySfxFilter("decel_crackle", err));
+    for (const auto &v : recipe.vehicles) {
+        EXPECT_FALSE(v.exportProfile.exportSteadyRpm);
+        EXPECT_FALSE(v.exportProfile.exportStarter);
+        EXPECT_FALSE(v.exportProfile.exportRevLimiter);
+        EXPECT_FALSE(v.exportProfile.exportRevBlip);
+        EXPECT_TRUE(v.exportProfile.exportDecelCrackle);
+    }
+
+    // Apply rev_blip filter
+    EXPECT_TRUE(recipe.applySfxFilter("rev_blip", err));
+    for (const auto &v : recipe.vehicles) {
+        EXPECT_FALSE(v.exportProfile.exportSteadyRpm);
+        EXPECT_FALSE(v.exportProfile.exportStarter);
+        EXPECT_FALSE(v.exportProfile.exportRevLimiter);
+        EXPECT_TRUE(v.exportProfile.exportRevBlip);
+        EXPECT_FALSE(v.exportProfile.exportDecelCrackle);
+    }
+
+    // Filter by vehicle
+    EXPECT_TRUE(recipe.filterVehicles("trench"));
+    EXPECT_EQ(recipe.vehicles.size(), 1);
+    EXPECT_EQ(recipe.vehicles[0].id, "trench");
+
+    // Invalid SFX filter
+    EXPECT_FALSE(recipe.applySfxFilter("non_existent_sfx", err));
+}
+

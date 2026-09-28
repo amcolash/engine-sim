@@ -47,6 +47,9 @@ struct ExportRecipe {
     static bool loadFromFile(const std::string &filePath, ExportRecipe &recipe, std::string &errorMessage);
     static bool parseJsonString(const std::string &jsonStr, ExportRecipe &recipe, std::string &errorMessage);
     static ExportRecipe createDefaultSingleEngine(const std::string &scriptPath, const std::string &outputDir, int rpmStep = 500);
+
+    bool applySfxFilter(const std::string &sfxFilterStr, std::string &errorMessage);
+    bool filterVehicles(const std::string &vehicleId);
 };
 
 #endif /* ATG_ENGINE_SIM_EXPORT_RECIPE_H */
