@@ -264,6 +264,13 @@ Output WAV (Punchy, loud, consistent across vehicles, zero digital clipping)
    $$y(x) = \begin{cases} x & |x| \le \text{Knee} \\ \operatorname{sgn}(x)\left(\text{Knee} + \Delta \tanh\left(\frac{|x| - \text{Knee}}{\Delta}\right)\right) & |x| > \text{Knee} \end{cases}$$
    Because $\tanh(0) = 0$ and $\tanh'(0) = 1$, the transition at the knee is perfectly smooth ($C^1$ continuous), introducing zero harsh clipping or harmonic distortion.
 
+4. **Upward Amplification & Low-Level Logging**:
+   - For audio signals that are significantly below the target loudness threshold (active $\text{RMS} < -13.5\text{ dBFS}$ or peak $< -3.0\text{ dBFS}$), the pipeline provides up to $+18\text{ dB}$ of clean upward amplification.
+   - The sync tool automatically logs any file that was below threshold, reporting its initial RMS, peak, applied gain boost, and resulting post-limiting level:
+     ```
+     [stratus] AMP engine_start.wav -> Low audio level (RMS: -19.4 dBFS, Peak: -7.8 dBFS) | Amplified +6.5 dB (New RMS: -12.0 dBFS, Peak: -1.0 dBFS)
+     ```
+
 This normalization is implemented in:
 - **C++ Exporter**: [`src/wav_writer.cpp`](file:///home/amcolash/Dev/engine-sim/src/wav_writer.cpp#L29) (`WavWriter::normalizeAudio`)
 - **Post-Process Sync Pipeline**: [`scripts/sync_audio.py`](file:///home/amcolash/Dev/engine-sim/scripts/sync_audio.py#L138) (`normalize_wav_file`, invoked automatically via `just sync-audio`, `just export-audio`, and `just export-sfx`)

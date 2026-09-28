@@ -135,10 +135,11 @@ def compare_audio(existing_path, new_path, similarity_threshold=0.985, max_rms_d
 
     return True, f"Acoustically identical ({cosine_sim * 100:.1f}% match, {rms_delta_db:.2f} dB delta)", cosine_sim, rms_delta_db
 
-def normalize_wav_file(file_path, target_rms_db=-12.0, target_peak_db=-1.0):
+def normalize_wav_file(file_path, vehicle_id="", target_rms_db=-12.0, target_peak_db=-1.0, low_threshold_rms_db=-13.5):
     """
     Normalizes a WAV file in-place using active RMS loudness targeting and soft-knee
     peak limiting while preserving RIFF/smpl loop metadata chunks.
+    Logs any sounds that are below the target threshold and reports their amplification.
     """
     try:
         with open(file_path, 'rb') as f:
@@ -192,9 +193,13 @@ def normalize_wav_file(file_path, target_rms_db=-12.0, target_peak_db=-1.0):
             active = samples
         active_rms = float(np.sqrt(np.mean(active ** 2)))
 
+        orig_rms_db = 20.0 * np.log10(max(1e-9, active_rms))
+        orig_peak_db = 20.0 * np.log10(max(1e-9, max_val))
+
         gain = target_rms / max(1e-6, active_rms)
-        if gain * max_val > target_peak * 3.0:
-            gain = (target_peak * 3.0) / max_val
+        # Allow up to +18 dB boost for quiet sounds
+        if gain * max_val > target_peak * 8.0:
+            gain = (target_peak * 8.0) / max_val
 
         # Soft-knee saturation limiter for smooth peak control
         knee = 0.75 * target_peak
@@ -210,9 +215,24 @@ def normalize_wav_file(file_path, target_rms_db=-12.0, target_peak_db=-1.0):
         pcm16 = np.clip(np.round(compressed * 32767.0), -32768, 32767).astype(np.int16)
         new_data_bytes = pcm16.tobytes()
 
+        # Measure post-normalization levels for logging
+        new_samples = pcm16.astype(np.float32) / 32768.0
+        new_max = float(np.max(np.abs(new_samples)))
+        new_active = new_samples[np.abs(new_samples) >= (new_max * 0.01)]
+        new_rms = float(np.sqrt(np.mean((new_active if len(new_active) > 0 else new_samples) ** 2)))
+        new_rms_db = 20.0 * np.log10(max(1e-9, new_rms))
+        new_peak_db = 20.0 * np.log10(max(1e-9, new_max))
+        gain_db = 20.0 * np.log10(max(1e-9, gain))
+
         # Check if already normalized
         if new_data_bytes == raw_pcm:
             return False
+
+        # Log if original sound was noticeably below target threshold and was amplified
+        if orig_rms_db < low_threshold_rms_db or gain_db > 0.5:
+            v_prefix = f"[{vehicle_id}] " if vehicle_id else ""
+            fname = os.path.basename(file_path)
+            print(f"  {v_prefix}AMP {fname:20s} -> Low audio level (RMS: {orig_rms_db:5.1f} dBFS, Peak: {orig_peak_db:5.1f} dBFS) | Amplified {gain_db:+5.1f} dB (New RMS: {new_rms_db:5.1f} dBFS, Peak: {new_peak_db:5.1f} dBFS)")
 
         chunks[data_idx] = (b'data', new_data_bytes)
         out = bytearray(b'RIFF\x00\x00\x00\x00WAVE')
@@ -285,7 +305,7 @@ def sync_directories(src_dir, dst_dir, vehicle_filter=None, threshold=0.985, max
             dst_file = os.path.join(v_dst, wf)
 
             if normalize and not dry_run:
-                normalize_wav_file(src_file)
+                normalize_wav_file(src_file, vehicle_id=v)
 
             if force or not os.path.exists(dst_file):
                 is_match = False
@@ -305,20 +325,14 @@ def sync_directories(src_dir, dst_dir, vehicle_filter=None, threshold=0.985, max
                 if not dry_run:
                     shutil.copy2(src_file, dst_file)
 
-        # Copy any non-wav files (manifests, metadata) if changed
-        for extra in os.listdir(v_src):
-            if not extra.endswith('.wav'):
-                s_extra = os.path.join(v_src, extra)
-                d_extra = os.path.join(v_dst, extra)
-                should_copy = False
-                if not os.path.exists(d_extra):
-                    should_copy = True
-                else:
-                    with open(s_extra, 'rb') as f1, open(d_extra, 'rb') as f2:
-                        if f1.read() != f2.read():
-                            should_copy = True
-                if should_copy and not dry_run:
-                    shutil.copy2(s_extra, d_extra)
+        # Remove manifest.json from destination if present (manifests kept in export only, not game repo)
+        dst_manifest = os.path.join(v_dst, "manifest.json")
+        if os.path.exists(dst_manifest) and not dry_run:
+            try:
+                os.remove(dst_manifest)
+                print(f"  [{v}] REMOVED manifest.json from game repo")
+            except OSError:
+                pass
 
         status_str = f"[{v}] {v_skipped}/{len(wav_files)} untouched (identical)"
         if v_updated > 0:

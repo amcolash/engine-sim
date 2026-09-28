@@ -60,9 +60,9 @@ void WavWriter::normalizeAudio(std::vector<float> &audioSamples, float targetPea
     constexpr float targetRms = 0.25118864f;
     float gain = targetRms / std::max(1e-6f, activeRms);
 
-    // Bound maximum gain to prevent over-compressing signals with extreme crest factor
-    if (gain * maxVal > targetPeak * 3.0f) {
-        gain = (targetPeak * 3.0f) / maxVal;
+    // Bound maximum gain to prevent over-amplifying pure background noise (up to +18 dB boost allowed)
+    if (gain * maxVal > targetPeak * 8.0f) {
+        gain = (targetPeak * 8.0f) / maxVal;
     }
 
     // Apply gain with transparent soft-knee peak limiting to strictly adhere to targetPeak
