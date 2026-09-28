@@ -19,13 +19,17 @@ run *ARGS: build
 test *ARGS: build
     nix develop -c ./build/engine-sim-test {{ARGS}}
 
-# Export all game vehicles audio (full batch)
+# Export all game vehicles audio (full batch) and intelligently sync
 export-audio *ARGS: build
     #!/usr/bin/env bash
     rm -rf assets/audio/engines
     mkdir -p assets/audio/engines
     nix develop -c ./build/engine-sim-app --export-audio recipes/game_vehicles.json {{ARGS}}
-    cp -R assets/audio/engines/* /home/amcolash/Godot/drag-race/assets/engine
+    python3 scripts/sync_audio.py
+
+# Sync audio to Godot game repo without re-rendering
+sync-audio *ARGS:
+    python3 scripts/sync_audio.py {{ARGS}}
 
 # Export fast test vehicle audio
 export-fast *ARGS: build
