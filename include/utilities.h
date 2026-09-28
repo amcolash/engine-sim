@@ -12,4 +12,14 @@ inline t clamp(t x, t x0 = static_cast<t>(0.0), t x1 = static_cast<t>(1.0)) {
     else return x;
 }
 
+#include <cstdint>
+
+namespace rng {
+    void seed(uint64_t s);
+    uint64_t next64();
+    double uniform();             // [0.0, 1.0)
+    float uniformFloat();         // [0.0f, 1.0f)
+    float uniformBipolarFloat();  // [-1.0f, 1.0f)
+}
+
 #endif /* ATG_ENGINE_SIM_UTILITIES_H */

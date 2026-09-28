@@ -608,32 +608,39 @@ bool AudioExporter::exportVehicle(
             "use_default_theme()\n"
             "main()\n";
     } else {
-        // Look for public node <name> that defines or aliases an engine
-        std::regex engNodeRegex(R"(public\s+node\s+([a-zA-Z0-9_]+)\s*\{[\s\S]*?(engine\s+engine|alias\s+output\s+__out:\s*engine))");
-        std::smatch match;
-        if (std::regex_search(scriptContent, match, engNodeRegex) && match.size() > 1) {
-            detectedNode = match[1].str();
-        } else {
-            std::regex anyPubRegex(R"(public\s+node\s+([a-zA-Z0-9_]+))");
+        std::string stem = resolvedScriptPath.stem().string();
+        std::regex anyPubRegex(R"(public\s+node\s+([a-zA-Z0-9_]+)\s*\{([^}]*)\})");
             auto it_begin = std::sregex_iterator(scriptContent.begin(), scriptContent.end(), anyPubRegex);
             auto it_end = std::sregex_iterator();
-            std::string stem = resolvedScriptPath.stem().string();
-            bool foundStem = false;
+
+        // 1. First priority: a public node matching the file stem
             for (auto it = it_begin; it != it_end; ++it) {
                 std::string n = (*it)[1].str();
                 if (strcasecmp(n.c_str(), stem.c_str()) == 0) {
                     detectedNode = n;
-                    foundStem = true;
                     break;
                 }
             }
-            if (!foundStem) {
+
+        // 2. Second priority: a public node containing 'engine engine' or 'alias output __out: engine'
+        if (detectedNode.empty()) {
                 for (auto it = it_begin; it != it_end; ++it) {
+                std::string body = (*it)[2].str();
+                if (body.find("engine engine") != std::string::npos ||
+                    body.find("alias output __out: engine") != std::string::npos) {
                     detectedNode = (*it)[1].str();
+                    break;
+                }
+            }
+        }
+
+        // 3. Third priority: last public node or stem
+        if (detectedNode.empty()) {
+            for (auto it = it_begin; it != it_end; ++it) {
+                detectedNode = (*it)[1].str();
                 }
                 if (detectedNode.empty()) {
                     detectedNode = stem;
-                }
             }
         }
 
@@ -792,8 +799,12 @@ bool AudioExporter::exportVehicle(
             }
         }
 
+        uint64_t vehicleSeed = 0x9e3779b97f4a7c15ULL ^ std::hash<std::string>{}(vehicleConfig.id);
+
         for (size_t idx = 0; idx < targetRpms.size(); ++idx) {
             int rpm = targetRpms[idx];
+            rng::seed(vehicleSeed ^ (static_cast<uint64_t>(rpm) * 0xbf58476d1ce4e5b9ULL));
+
             float progress = 0.1f + 0.6f * (static_cast<float>(idx) / std::max(1.0f, static_cast<float>(targetRpms.size())));
             if (callback) callback->onProgress(vehicleConfig.id, "RPM " + std::to_string(rpm), progress);
 
@@ -839,9 +850,12 @@ bool AudioExporter::exportVehicle(
         }
     }
 
+    uint64_t vehicleSeed = 0x9e3779b97f4a7c15ULL ^ std::hash<std::string>{}(vehicleConfig.id);
+
     // 6. Export Transient Sounds
     // A. Engine Start
     if (vehicleConfig.exportProfile.exportStarter) {
+        rng::seed(vehicleSeed ^ 0x10001ULL);
         if (callback) callback->onProgress(vehicleConfig.id, "Engine Start", 0.75f);
         std::vector<float> samples;
         if (generateEngineStart(*simulator, samples)) {
@@ -860,6 +874,7 @@ bool AudioExporter::exportVehicle(
 
     // C. Rev Limiter
     if (vehicleConfig.exportProfile.exportRevLimiter) {
+        rng::seed(vehicleSeed ^ 0x20002ULL);
         if (callback) callback->onProgress(vehicleConfig.id, "Rev Limiter", 0.85f);
         std::vector<float> samples;
         if (generateRevLimiter(*simulator, 2.5, samples)) {
@@ -878,6 +893,7 @@ bool AudioExporter::exportVehicle(
 
     // D. Throttle Blip
     if (vehicleConfig.exportProfile.exportRevBlip) {
+        rng::seed(vehicleSeed ^ 0x30003ULL);
         if (callback) callback->onProgress(vehicleConfig.id, "Throttle Blip", 0.90f);
         std::vector<float> samples;
         if (generateThrottleBlip(*simulator, samples)) {
@@ -896,6 +912,7 @@ bool AudioExporter::exportVehicle(
 
     // E. Decel Crackle
     if (vehicleConfig.exportProfile.exportDecelCrackle) {
+        rng::seed(vehicleSeed ^ 0x40004ULL);
         if (callback) callback->onProgress(vehicleConfig.id, "Decel Crackle", 0.95f);
         std::vector<float> samples;
         int decelRpm = std::max(4000, vehicleConfig.exportProfile.rpmMax - 1000);
@@ -912,6 +929,9 @@ bool AudioExporter::exportVehicle(
             std::cout << "  [" << vehicleConfig.id << "] -> Decel crackle... OK (" << rt.durationSec << "s)\n" << std::flush;
         }
     }
+
+    // 6.5 Write Manifest
+    writeManifest(vehicleOutputDir + "/manifest.json", vehicleConfig, globalSettings, renderedLoops, renderedTransients);
 
     // 7. Cleanup
     simulator->releaseSimulation();

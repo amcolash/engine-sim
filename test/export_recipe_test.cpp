@@ -11,17 +11,18 @@ TEST(ExportRecipeTests, ParseGameVehiclesRecipe) {
     EXPECT_EQ(recipe.globalSettings.outputDir, "assets/audio/engines");
     EXPECT_TRUE(recipe.globalSettings.embedLoopMarkers);
 
-    EXPECT_EQ(recipe.vehicles.size(), 10);
-    EXPECT_EQ(recipe.vehicles[0].id, "aileron");
-    EXPECT_EQ(recipe.vehicles[0].exportProfile.rpmMin, 900);
-    EXPECT_EQ(recipe.vehicles[0].exportProfile.rpmMax, 6800);
-    EXPECT_EQ(recipe.vehicles[0].exportProfile.rpmStep, 500);
-    EXPECT_TRUE(recipe.vehicles[0].exportProfile.exportRevBlip);
-    EXPECT_TRUE(recipe.vehicles[0].exportProfile.exportRevLimiter);
-    EXPECT_EQ(recipe.vehicles[6].id, "mantis");
-    EXPECT_EQ(recipe.vehicles[7].id, "pulse");
-    EXPECT_EQ(recipe.vehicles[8].id, "glacier");
-    EXPECT_EQ(recipe.vehicles[9].id, "chariot");
+    EXPECT_EQ(recipe.vehicles.size(), 21);
+    EXPECT_EQ(recipe.vehicles[0].id, "trench");
+    EXPECT_EQ(recipe.vehicles[1].id, "aileron");
+    EXPECT_EQ(recipe.vehicles[1].exportProfile.rpmMin, 900);
+    EXPECT_EQ(recipe.vehicles[1].exportProfile.rpmMax, 6800);
+    EXPECT_EQ(recipe.vehicles[1].exportProfile.rpmStep, 500);
+    EXPECT_TRUE(recipe.vehicles[1].exportProfile.exportRevBlip);
+    EXPECT_TRUE(recipe.vehicles[1].exportProfile.exportRevLimiter);
+    EXPECT_EQ(recipe.vehicles[17].id, "mamba");
+    EXPECT_EQ(recipe.vehicles[18].id, "phantom");
+    EXPECT_EQ(recipe.vehicles[19].id, "scorpio");
+    EXPECT_EQ(recipe.vehicles[20].id, "pulse");
 }
 
 TEST(ExportRecipeTests, CreateDefaultSingleEngine) {

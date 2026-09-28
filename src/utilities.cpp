@@ -40,3 +40,30 @@ double erfApproximation(double x) {
 
     return 1 - q4;
 }
+
+namespace rng {
+    thread_local uint64_t s_rngState = 0x853c49e6748fea9bULL;
+
+    void seed(uint64_t s) {
+        s_rngState = (s == 0) ? 0x853c49e6748fea9bULL : s;
+    }
+
+    uint64_t next64() {
+        uint64_t z = (s_rngState += 0x9e3779b97f4a7c15ULL);
+        z = (z ^ (z >> 30)) * 0xbf58476d1ce4e5b9ULL;
+        z = (z ^ (z >> 27)) * 0x94d049bb133111ebULL;
+        return z ^ (z >> 31);
+    }
+
+    double uniform() {
+        return (next64() >> 11) * (1.0 / 9007199254740992.0);
+    }
+
+    float uniformFloat() {
+        return static_cast<float>((next64() >> 40) * (1.0 / 16777216.0));
+    }
+
+    float uniformBipolarFloat() {
+        return uniformFloat() * 2.0f - 1.0f;
+    }
+}

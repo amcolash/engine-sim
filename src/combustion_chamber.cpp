@@ -208,7 +208,7 @@ void CombustionChamber::ignite() {
                 * clamp(1 - dilution / maxDilutionEffect));
         const double rand_s =
             lowEfficiencyAttenuation
-            * ((1 - randomness) + randomness * ((double)rand() / RAND_MAX));
+            * ((1 - randomness) + randomness * rng::uniform());
         const double efficiencyAttenuation =
             (mixingFactor * rand_s + (1 - mixingFactor));
         m_flameEvent.efficiency =

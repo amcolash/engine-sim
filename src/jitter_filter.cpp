@@ -24,6 +24,8 @@ void JitterFilter::initialize(
     m_offset = 0;
     memset(m_history, 0, sizeof(float) * maxJitter);
 
+    m_generator.seed(0x1337cafe);
+
     m_noiseFilter.setCutoffFrequency(cutoffFrequency, audioFrequency);
 }
 
