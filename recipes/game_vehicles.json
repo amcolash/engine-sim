@@ -8,43 +8,11 @@
     "default_cycles_per_loop": 6,
     "default_min_loop_duration_sec": 1.0
   },
-  "search_paths": ["assets", "assets/engines", "part-library"],
+  "search_paths": ["assets", "assets/engines", "assets/engines/custom", "part-library"],
   "vehicles": [
     {
-      "id": "aileron",
-      "display_name": "Aileron (SEDAN) — Balanced Street",
-      "script_path": "assets/engines/atg-video-1/06_subaru_ej25.mr",
-      "export_profile": {
-        "rpm_min": 900,
-        "rpm_max": 6800,
-        "rpm_step": 500,
-        "cycles_per_loop": 6,
-        "min_loop_duration_sec": 1.0,
-        "export_steady_rpm": true,
-        "export_rev_limiter": true,
-        "export_rev_blip": true,
-        "export_decel_crackle": true
-      }
-    },
-    {
-      "id": "tachyon",
-      "display_name": "Tachyon (HATCHBACK) — Snappy Tuner",
-      "script_path": "assets/engines/atg-video-1/05_honda_vtec.mr",
-      "export_profile": {
-        "rpm_min": 1000,
-        "rpm_max": 7200,
-        "rpm_step": 500,
-        "cycles_per_loop": 6,
-        "min_loop_duration_sec": 1.0,
-        "export_steady_rpm": true,
-        "export_rev_limiter": true,
-        "export_rev_blip": true,
-        "export_decel_crackle": true
-      }
-    },
-    {
       "id": "trench",
-      "display_name": "Trench (MUSCLE) — Raw Muscle",
+      "display_name": "Trench (MUSCLE) — Classic Pony V8",
       "script_path": "assets/engines/atg-video-2/07_gm_ls.mr",
       "export_profile": {
         "rpm_min": 900,
@@ -53,22 +21,24 @@
         "cycles_per_loop": 6,
         "min_loop_duration_sec": 1.0,
         "export_steady_rpm": true,
+        "export_starter": true,
         "export_rev_limiter": true,
         "export_rev_blip": true,
         "export_decel_crackle": true
       }
     },
     {
-      "id": "vendetta",
-      "display_name": "Vendetta (MUSCLE2) — Raw Muscle",
-      "script_path": "assets/engines/atg-video-2/07_gm_ls.mr",
+      "id": "aileron",
+      "display_name": "Aileron (SEDAN) — Street Boxer-4",
+      "script_path": "assets/engines/atg-video-1/06_subaru_ej25.mr",
       "export_profile": {
-        "rpm_min": 850,
-        "rpm_max": 6600,
+        "rpm_min": 900,
+        "rpm_max": 6800,
         "rpm_step": 500,
         "cycles_per_loop": 6,
         "min_loop_duration_sec": 1.0,
         "export_steady_rpm": true,
+        "export_starter": true,
         "export_rev_limiter": true,
         "export_rev_blip": true,
         "export_decel_crackle": true
@@ -76,7 +46,7 @@
     },
     {
       "id": "grizzly",
-      "display_name": "Grizzly (PICKUP) — Heavy Utility",
+      "display_name": "Grizzly (PICKUP) — 454 Big Block Utility",
       "script_path": "assets/engines/chevrolet/chev_truck_454.mr",
       "export_profile": {
         "rpm_min": 800,
@@ -85,70 +55,41 @@
         "cycles_per_loop": 6,
         "min_loop_duration_sec": 1.0,
         "export_steady_rpm": true,
+        "export_starter": true,
         "export_rev_limiter": true,
         "export_rev_blip": true,
         "export_decel_crackle": true
       }
     },
     {
-      "id": "crusher",
-      "display_name": "Crusher (MONSTER_TRUCK) — Heavy Utility",
-      "script_path": "assets/engines/chevrolet/chev_truck_454.mr",
+      "id": "tachyon",
+      "display_name": "Tachyon (HATCHBACK) — High-Cam VTEC I4",
+      "script_path": "assets/engines/atg-video-1/05_honda_vtec.mr",
       "export_profile": {
-        "rpm_min": 900,
-        "rpm_max": 5400,
+        "rpm_min": 1000,
+        "rpm_max": 7200,
         "rpm_step": 500,
         "cycles_per_loop": 6,
         "min_loop_duration_sec": 1.0,
         "export_steady_rpm": true,
+        "export_starter": true,
         "export_rev_limiter": true,
         "export_rev_blip": true,
         "export_decel_crackle": true
       }
     },
     {
-      "id": "mantis",
-      "display_name": "Mantis (ROADSTER) — Snappy Tuner",
-      "script_path": "assets/engines/atg-video-1/04_hayabusa.mr",
+      "id": "hauler",
+      "display_name": "Hauler (VAN) — Even-Fire V6 Workhorse",
+      "script_path": "assets/engines/atg-video-2/06_even_fire_v6.mr",
       "export_profile": {
-        "rpm_min": 1100,
-        "rpm_max": 8800,
+        "rpm_min": 800,
+        "rpm_max": 5200,
         "rpm_step": 500,
         "cycles_per_loop": 6,
         "min_loop_duration_sec": 1.0,
         "export_steady_rpm": true,
-        "export_rev_limiter": true,
-        "export_rev_blip": true,
-        "export_decel_crackle": true
-      }
-    },
-    {
-      "id": "pulse",
-      "display_name": "Pulse (SPORTS) — Exotic Boss",
-      "script_path": "assets/engines/atg-video-2/10_lfa_v10.mr",
-      "export_profile": {
-        "rpm_min": 1200,
-        "rpm_max": 9000,
-        "rpm_step": 500,
-        "cycles_per_loop": 6,
-        "min_loop_duration_sec": 1.0,
-        "export_steady_rpm": true,
-        "export_rev_limiter": true,
-        "export_rev_blip": true,
-        "export_decel_crackle": true
-      }
-    },
-    {
-      "id": "glacier",
-      "display_name": "Glacier (SUV) — AWD Heavy",
-      "script_path": "assets/engines/atg-video-1/07_audi_i5.mr",
-      "export_profile": {
-        "rpm_min": 850,
-        "rpm_max": 6600,
-        "rpm_step": 500,
-        "cycles_per_loop": 6,
-        "min_loop_duration_sec": 1.0,
-        "export_steady_rpm": true,
+        "export_starter": true,
         "export_rev_limiter": true,
         "export_rev_blip": true,
         "export_decel_crackle": true
@@ -156,7 +97,7 @@
     },
     {
       "id": "chariot",
-      "display_name": "Chariot (TAXI) — Balanced Street",
+      "display_name": "Chariot (TAXI) — 2JZ Sleeper Turbo I6",
       "script_path": "assets/engines/atg-video-2/03_2jz.mr",
       "export_profile": {
         "rpm_min": 800,
@@ -165,6 +106,262 @@
         "cycles_per_loop": 6,
         "min_loop_duration_sec": 1.0,
         "export_steady_rpm": true,
+        "export_starter": true,
+        "export_rev_limiter": true,
+        "export_rev_blip": true,
+        "export_decel_crackle": true
+      }
+    },
+    {
+      "id": "crusher",
+      "display_name": "Crusher (MONSTER_TRUCK) — 540ci Blown Zoomies V8",
+      "script_path": "assets/engines/custom/monster_truck_540_blown_v8.mr",
+      "export_profile": {
+        "rpm_min": 900,
+        "rpm_max": 5400,
+        "rpm_step": 500,
+        "cycles_per_loop": 6,
+        "min_loop_duration_sec": 1.0,
+        "export_steady_rpm": true,
+        "export_starter": true,
+        "export_rev_limiter": true,
+        "export_rev_blip": true,
+        "export_decel_crackle": true
+      }
+    },
+    {
+      "id": "marauder",
+      "display_name": "Marauder (KAMARO) — 427ci L88 Big Block V8",
+      "script_path": "assets/engines/custom/chevy_427_l88_v8.mr",
+      "export_profile": {
+        "rpm_min": 850,
+        "rpm_max": 6200,
+        "rpm_step": 500,
+        "cycles_per_loop": 6,
+        "min_loop_duration_sec": 1.0,
+        "export_steady_rpm": true,
+        "export_starter": true,
+        "export_rev_limiter": true,
+        "export_rev_blip": true,
+        "export_decel_crackle": true
+      }
+    },
+    {
+      "id": "vanguard",
+      "display_name": "Vanguard (ARMOR) — AMG 4.0L BiTurbo V8",
+      "script_path": "assets/engines/custom/mercedes_amg_m177_v8_4_0l.mr",
+      "export_profile": {
+        "rpm_min": 850,
+        "rpm_max": 6400,
+        "rpm_step": 500,
+        "cycles_per_loop": 6,
+        "min_loop_duration_sec": 1.0,
+        "export_steady_rpm": true,
+        "export_starter": true,
+        "export_rev_limiter": true,
+        "export_rev_blip": true,
+        "export_decel_crackle": true
+      }
+    },
+    {
+      "id": "mantis",
+      "display_name": "Mantis (ROADSTER) — 1.3L Screamer I4",
+      "script_path": "assets/engines/atg-video-1/04_hayabusa.mr",
+      "export_profile": {
+        "rpm_min": 1100,
+        "rpm_max": 8800,
+        "rpm_step": 500,
+        "cycles_per_loop": 6,
+        "min_loop_duration_sec": 1.0,
+        "export_steady_rpm": true,
+        "export_starter": true,
+        "export_rev_limiter": true,
+        "export_rev_blip": true,
+        "export_decel_crackle": true
+      }
+    },
+    {
+      "id": "corsair",
+      "display_name": "Corsair (RALLY) — WRC Unequal-Header Boxer-4",
+      "script_path": "assets/engines/atg-video-2/02_subaru_ej25_uh.mr",
+      "export_profile": {
+        "rpm_min": 950,
+        "rpm_max": 7000,
+        "rpm_step": 500,
+        "cycles_per_loop": 6,
+        "min_loop_duration_sec": 1.0,
+        "export_steady_rpm": true,
+        "export_starter": true,
+        "export_rev_limiter": true,
+        "export_rev_blip": true,
+        "export_decel_crackle": true
+      }
+    },
+    {
+      "id": "nomad",
+      "display_name": "Nomad (JEEP) — 6.4L 392 SRT HEMI V8",
+      "script_path": "assets/engines/custom/chrysler_hemi_392_v8.mr",
+      "export_profile": {
+        "rpm_min": 850,
+        "rpm_max": 6000,
+        "rpm_step": 500,
+        "cycles_per_loop": 6,
+        "min_loop_duration_sec": 1.0,
+        "export_steady_rpm": true,
+        "export_starter": true,
+        "export_rev_limiter": true,
+        "export_rev_blip": true,
+        "export_decel_crackle": true
+      }
+    },
+    {
+      "id": "vendetta",
+      "display_name": "Vendetta (MUSCLE2) — Supercharged High-Rev V8",
+      "script_path": "assets/engines/atg-video-2/07_gm_ls.mr",
+      "export_profile": {
+        "rpm_min": 850,
+        "rpm_max": 6600,
+        "rpm_step": 500,
+        "cycles_per_loop": 6,
+        "min_loop_duration_sec": 1.0,
+        "export_steady_rpm": true,
+        "export_starter": true,
+        "export_rev_limiter": true,
+        "export_rev_blip": true,
+        "export_decel_crackle": true
+      }
+    },
+    {
+      "id": "glacier",
+      "display_name": "Glacier (SUV) — Turbo Inline-5 Warble",
+      "script_path": "assets/engines/atg-video-1/07_audi_i5.mr",
+      "export_profile": {
+        "rpm_min": 850,
+        "rpm_max": 6600,
+        "rpm_step": 500,
+        "cycles_per_loop": 6,
+        "min_loop_duration_sec": 1.0,
+        "export_steady_rpm": true,
+        "export_starter": true,
+        "export_rev_limiter": true,
+        "export_rev_blip": true,
+        "export_decel_crackle": true
+      }
+    },
+    {
+      "id": "stratus",
+      "display_name": "Stratus (COUPE) — German DOHC 24V Straight-Six",
+      "script_path": "assets/engines/bmw/M52B28.mr",
+      "export_profile": {
+        "rpm_min": 900,
+        "rpm_max": 7200,
+        "rpm_step": 500,
+        "cycles_per_loop": 6,
+        "min_loop_duration_sec": 1.0,
+        "export_steady_rpm": true,
+        "export_starter": true,
+        "export_rev_limiter": true,
+        "export_rev_blip": true,
+        "export_decel_crackle": true
+      }
+    },
+    {
+      "id": "helix",
+      "display_name": "Helix (LAMB) — RB26DETT 2.6L Twin-Turbo I6",
+      "script_path": "assets/engines/custom/nissan_rb26dett_i6.mr",
+      "export_profile": {
+        "rpm_min": 1000,
+        "rpm_max": 8500,
+        "rpm_step": 500,
+        "cycles_per_loop": 6,
+        "min_loop_duration_sec": 1.0,
+        "export_steady_rpm": true,
+        "export_starter": true,
+        "export_rev_limiter": true,
+        "export_rev_blip": true,
+        "export_decel_crackle": true
+      }
+    },
+    {
+      "id": "monarch",
+      "display_name": "Monarch (MOBIL) — Merlin 27L Supercharged V12",
+      "script_path": "assets/engines/atg-video-2/11_merlin_v12.mr",
+      "export_profile": {
+        "rpm_min": 800,
+        "rpm_max": 3800,
+        "rpm_step": 400,
+        "cycles_per_loop": 6,
+        "min_loop_duration_sec": 1.0,
+        "export_steady_rpm": true,
+        "export_starter": true,
+        "export_rev_limiter": true,
+        "export_rev_blip": true,
+        "export_decel_crackle": true
+      }
+    },
+    {
+      "id": "mamba",
+      "display_name": "Mamba (ITALIA) — Viper 8.4L Odd-Fire V10",
+      "script_path": "assets/engines/custom/dodge_viper_v10_8_4l.mr",
+      "export_profile": {
+        "rpm_min": 900,
+        "rpm_max": 6600,
+        "rpm_step": 500,
+        "cycles_per_loop": 6,
+        "min_loop_duration_sec": 1.0,
+        "export_steady_rpm": true,
+        "export_starter": true,
+        "export_rev_limiter": true,
+        "export_rev_blip": true,
+        "export_decel_crackle": true
+      }
+    },
+    {
+      "id": "phantom",
+      "display_name": "Phantom (FENYR) — 3.8L Twin-Turbo Flat-6",
+      "script_path": "assets/engines/custom/porsche_tt_flat6_3_8l.mr",
+      "export_profile": {
+        "rpm_min": 1000,
+        "rpm_max": 8000,
+        "rpm_step": 500,
+        "cycles_per_loop": 6,
+        "min_loop_duration_sec": 1.0,
+        "export_steady_rpm": true,
+        "export_starter": true,
+        "export_rev_limiter": true,
+        "export_rev_blip": true,
+        "export_decel_crackle": true
+      }
+    },
+    {
+      "id": "scorpio",
+      "display_name": "Scorpio (GHINI) — Screaming 5.2L DOHC V10",
+      "script_path": "assets/engines/custom/lamborghini_v10_5_2l.mr",
+      "export_profile": {
+        "rpm_min": 1200,
+        "rpm_max": 8800,
+        "rpm_step": 500,
+        "cycles_per_loop": 6,
+        "min_loop_duration_sec": 1.0,
+        "export_steady_rpm": true,
+        "export_starter": true,
+        "export_rev_limiter": true,
+        "export_rev_blip": true,
+        "export_decel_crackle": true
+      }
+    },
+    {
+      "id": "pulse",
+      "display_name": "Pulse (SPORTS) — LFA 4.8L 72-deg V10 Masterpiece",
+      "script_path": "assets/engines/atg-video-2/10_lfa_v10.mr",
+      "export_profile": {
+        "rpm_min": 1200,
+        "rpm_max": 9000,
+        "rpm_step": 500,
+        "cycles_per_loop": 6,
+        "min_loop_duration_sec": 1.0,
+        "export_steady_rpm": true,
+        "export_starter": true,
         "export_rev_limiter": true,
         "export_rev_blip": true,
         "export_decel_crackle": true

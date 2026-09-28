@@ -102,32 +102,40 @@ flowchart TD
 
 ---
 
-### Component F: Batch Export Engine (`recipe.json`)
+### Component F: Batch Export Engine (`recipes/game_vehicles.json`)
 
 **Goal:** Generate complete audio suites for multiple engine definitions in a single command.
 
-Example Batch Recipe Specification:
+Example Batch Recipe Specification (`recipes/game_vehicles.json`):
 
 ```json
 {
-  "engines": [
+  "global_settings": {
+    "output_dir": "assets/audio/engines",
+    "sample_rate": 44100,
+    "bits_per_sample": 16,
+    "normalize_peak_dbfs": -1.0,
+    "embed_loop_markers": true,
+    "default_cycles_per_loop": 6,
+    "default_min_loop_duration_sec": 1.0
+  },
+  "search_paths": ["assets", "assets/engines", "part-library"],
+  "vehicles": [
     {
-      "name": "v8_muscle",
-      "engine_file": "engines/v8_crossplane.mr",
-      "outputs": [
-        { "type": "steady_rpm", "rpm_start": 1000, "rpm_end": 7000, "rpm_step": 500, "cycles": 6 },
-        { "type": "rev_blip", "peak_rpm": 5500, "duration": 1.2 },
-        { "type": "rev_limiter", "duration": 2.5 }
-      ]
-    },
-    {
-      "name": "i4_tuner",
-      "engine_file": "engines/inline4_high_rev.mr",
-      "outputs": [
-        { "type": "steady_rpm", "rpm_start": 1000, "rpm_end": 9000, "rpm_step": 500, "cycles": 8 },
-        { "type": "rev_blip", "peak_rpm": 7500, "duration": 1.0 },
-        { "type": "rev_limiter", "duration": 2.5 }
-      ]
+      "id": "trench",
+      "display_name": "Trench (MUSCLE) — Raw Muscle",
+      "script_path": "assets/engines/atg-video-2/07_gm_ls.mr",
+      "export_profile": {
+        "rpm_min": 900,
+        "rpm_max": 6200,
+        "rpm_step": 500,
+        "cycles_per_loop": 6,
+        "min_loop_duration_sec": 1.0,
+        "export_steady_rpm": true,
+        "export_rev_limiter": true,
+        "export_rev_blip": true,
+        "export_decel_crackle": true
+      }
     }
   ]
 }
@@ -135,42 +143,60 @@ Example Batch Recipe Specification:
 
 ---
 
-## 3. Vehicle Sound Pack Mapping for Super Drag Racer 3000
+## 3. Vehicle Sound Pack Mapping for Super Drag Racer 3000 (21 Vehicles)
 
-| Vehicle      | In-Game Car   | Engine Architecture                       | Sound Characteristics                             | Target Redline |
-| :----------- | :------------ | :---------------------------------------- | :------------------------------------------------ | :------------- |
-| **Grizzly**  | Pickup        | Heavy 6.6L Big Block V8 / Turbo Diesel    | Low frequency, deep rumble, high torque chug      | 5000 RPM       |
-| **Crusher**  | Monster Truck | 8.2L Supercharged V8 with Blower Whine    | Massive displacement throb, violent exhaust pop   | 5400 RPM       |
-| **Chariot**  | Taxi          | 3.5L Fleet V6 Naturally Aspirated         | Smooth, muted drone, steady commuter hum          | 6000 RPM       |
-| **Trench**   | Muscle 1      | 7.0L Classic American Crossplane V8       | Iconic uneven idle lope, guttural mid-range bark  | 6200 RPM       |
-| **Vendetta** | Muscle 2      | 6.2L Modern Supercharged Hemispherical V8 | Screaming supercharger whine + heavy exhaust roar | 6600 RPM       |
-| **Glacier**  | SUV           | 4.0L Twin-Turbo High-Output V8            | Refined bass rumble with turbo spool & blowoff    | 6600 RPM       |
-| **Aileron**  | Sedan         | 2.5L Turbocharged DOHC Inline-4           | Clean street tuner tone with crisp induction      | 6800 RPM       |
-| **Tachyon**  | Hatchback     | 2.0L High-Boost High-Cam Inline-4         | Snappy, raspy high-frequency exhaust notes        | 7200 RPM       |
-| **Mantis**   | Roadster      | 2.0L 9000-RPM DOHC Screamer / Rotary      | High-pitched motorcycle-like howl                 | 8800 RPM       |
-| **Pulse**    | Sports        | 5.2L Flatplane V10 Exotic                 | Screaming Formula-style harmonics, fast rev climb | 9000 RPM       |
+| Tier | Vehicle (ID) | In-Game Car / Role | Engine Script Path | Engine Architecture | Sound Characteristics | RPM Range / Target Redline |
+| :---: | :----------- | :----------------- | :----------------- | :------------------ | :-------------------- | :------------------------- |
+| **C** | **Trench** (`trench`) | Classic Pony (`RAW_MUSCLE`) | `assets/engines/atg-video-2/07_gm_ls.mr` | 5.7L Classic Crossplane V8 | Iconic uneven idle lope, guttural mid-range bark | 900 – 6200 RPM (Redline: 6200) |
+| **C** | **Aileron** (`aileron`) | Street Sedan (`BALANCED_STREET`) | `assets/engines/atg-video-1/06_subaru_ej25.mr` | 2.5L Turbo Boxer-4 (Subaru EJ25) | Clean street tuner tone with crisp induction | 900 – 6800 RPM (Redline: 6800) |
+| **C** | **Grizzly** (`grizzly`) | Utility Truck (`HEAVY_UTILITY`) | `assets/engines/chevrolet/chev_truck_454.mr` | 7.4L (454ci) Big Block V8 | Low frequency, deep rumble, heavy low-end torque chug | 800 – 5000 RPM (Redline: 5000) |
+| **C** | **Tachyon** (`tachyon`) | Tuner Starter (`SNAPPY_TUNER`) | `assets/engines/atg-video-1/05_honda_vtec.mr` | High-Cam DOHC VTEC Inline-4 | Snappy, raspy high-frequency exhaust notes, high-cam scream | 1000 – 7200 RPM (Redline: 7200) |
+| **C** | **Hauler** (`hauler`) | Classic Work Van (`HEAVY_UTILITY`) | `assets/engines/atg-video-2/06_even_fire_v6.mr` | 3.8L Utilitarian Even-Fire V6 | Heavy utilitarian drone, steady commercial engine hum | 800 – 5200 RPM (Redline: 5200) |
+| **C** | **Chariot** (`chariot`) | Bonus Sleeper Taxi (`BALANCED_STREET`) | `assets/engines/atg-video-2/03_2jz.mr` | 3.0L Twin-Cam Inline-6 (Toyota 2JZ) | Smooth inline-6 turbine drone, sleeper turbo whistle | 800 – 6500 RPM (Redline: 6500) |
+| | | | | | | |
+| **B** | **Crusher** (`crusher`) | Wildcard Monster (`HEAVY_UTILITY`) | `assets/engines/custom/monster_truck_540_blown_v8.mr` | 540ci Supercharged Big-Block V8 | Unbaffled open zoomie headers, violent blower lope & backfires | 900 – 5400 RPM (Redline: 5400) |
+| **B** | **Marauder** (`marauder`) | Big-Block Muscle (`RAW_MUSCLE`) | `assets/engines/custom/chevy_427_l88_v8.mr` | 7.0L (427ci) L88 Big Block V8 | Radical solid-lifter high-lift cam chop, massive carbureted roar | 850 – 6200 RPM (Redline: 6200) |
+| **B** | **Vanguard** (`vanguard`) | Luxury AWD Box (`AWD_HEAVY`) | `assets/engines/custom/mercedes_amg_m177_v8_4_0l.mr` | 4.0L BiTurbo V8 (AMG M177) | Deep Hot-V crossplane AMG burble with aggressive overrun crackles | 850 – 6400 RPM (Redline: 6400) |
+| **B** | **Mantis** (`mantis`) | Agile Roadster (`SNAPPY_TUNER`) | `assets/engines/atg-video-1/04_hayabusa.mr` | 1.3L High-Rev DOHC Inline-4 | High-pitched motorcycle howl, screaming ultra-fast rev climb | 1100 – 8800 RPM (Redline: 8800) |
+| **B** | **Corsair** (`corsair`) | Rally AWD (`SNAPPY_TUNER`) | `assets/engines/atg-video-2/02_subaru_ej25_uh.mr` | 2.5L Turbo Boxer-4 (Unequal Headers) | Iconic unequal-length WRC boxer rumble, turbo spool & thrum | 950 – 7000 RPM (Redline: 7000) |
+| | | | | | | |
+| **A** | **Nomad** (`nomad`) | Offroad 4x4 Beast (`HEAVY_UTILITY`) | `assets/engines/custom/chrysler_hemi_392_v8.mr` | 6.4L (392ci) SRT HEMI V8 | Hemispherical combustion thrum, deep bass offroad torque pulse | 850 – 6000 RPM (Redline: 6000) |
+| **A** | **Vendetta** (`vendetta`) | Supercharged Muscle (`RAW_MUSCLE`) | `assets/engines/atg-video-2/07_gm_ls.mr` | High-Output Crossplane V8 | Aggressive crossplane roar, heavy exhaust thrum, extended top end | 850 – 6600 RPM (Redline: 6600) |
+| **A** | **Glacier** (`glacier`) | Performance SUV (`AWD_HEAVY`) | `assets/engines/atg-video-1/07_audi_i5.mr` | 2.2L Turbocharged Inline-5 (Audi I5) | Distinctive 5-cylinder warble, turbo boost roar & off-beat pulse | 850 – 6600 RPM (Redline: 6600) |
+| **A** | **Stratus** (`stratus`) | German Sport Sedan (`BALANCED_STREET`) | `assets/engines/bmw/M52B28.mr` | 2.8L DOHC 24V Straight-Six (BMW M52) | Pure, singing German sport straight-six harmonics | 900 – 7200 RPM (Redline: 7200) |
+| **A** | **Helix** (`helix`) | Widebody Tuner (`SNAPPY_TUNER`) | `assets/engines/custom/nissan_rb26dett_i6.mr` | 2.6L Twin-Turbo DOHC I6 (RB26DETT) | High-RPM metallic Japanese straight-six scream with 6-ITB bite | 1000 – 8500 RPM (Redline: 8500) |
+| | | | | | | |
+| **S** | **Monarch** (`monarch`) | Land Yacht Cruiser (`BALANCED_STREET`) | `assets/engines/atg-video-2/11_merlin_v12.mr` | 27.0L Supercharged V12 (RR Merlin) | Colossal 1860 HP aircraft engine thunder, deep supercharged pulses | 800 – 3800 RPM (Redline: 3800) |
+| **S** | **Mamba** (`mamba`) | 8.4L V10 Monster (`RAW_MUSCLE`) | `assets/engines/custom/dodge_viper_v10_8_4l.mr` | 8.4L (512ci) VX I Odd-Fire V10 (Viper) | Heavy odd-fire (54°/90°) idle lope, raw unbridled V10 torque roar | 900 – 6600 RPM (Redline: 6600) |
+| **S** | **Phantom** (`phantom`) | Hybrid SH-AWD (`EXOTIC_BOSS`) | `assets/engines/custom/porsche_tt_flat6_3_8l.mr` | 3.8L Twin-Turbo Flat-6 (Porsche Boxer) | Razor-sharp flat-6 metallic rasp, twin turbo spool & high-tech note | 1000 – 8000 RPM (Redline: 8000) |
+| **S** | **Scorpio** (`scorpio`) | Screaming V10 (`EXOTIC_BOSS`) | `assets/engines/custom/lamborghini_v10_5_2l.mr` | 5.2L DOHC V10 (Lamborghini LP610) | Screaming 8800 RPM Italian V10 harmonics, acoustic violence | 1200 – 8800 RPM (Redline: 8800) |
+| **S** | **Pulse** (`pulse`) | Precision Track (`EXOTIC_BOSS`) | `assets/engines/atg-video-2/10_lfa_v10.mr` | 4.8L Even-Fire 72° V10 (LFA 1LR-GUE) | F1-inspired acoustic resonance, pristine screaming high harmonics | 1200 – 9000 RPM (Redline: 9000) |
 
 ---
 
 ## 4. Proposed Source Code Modifications in `engine-sim`
 
-### 1. `include/audio_exporter.h` & `src/audio_exporter.cpp` [NEW]
+### 1. `include/audio_exporter.h` & `src/audio_exporter.cpp` [IMPLEMENTED]
 
 - Implements `AudioExporter` class.
-- Manages non-realtime audio buffer recording, crank phase tracking, cycle-based zero-crossing loop extraction, and RIFF WAV encoding with `smpl` chunk.
+- Manages non-realtime audio buffer recording, crank phase tracking, cycle-based zero-crossing loop extraction, transient generation (rev limiter, rev blip, decel crackle, starter), and JSON manifest generation.
 
-### 2. `include/rpm_governor.h` & `src/rpm_governor.cpp` [NEW]
+### 2. `include/wav_writer.h` & `src/wav_writer.cpp` [IMPLEMENTED]
 
-- Implements PID governor controlling engine throttle and dynamometer load to hold exact target RPMs.
+- Manages RIFF WAV encoding (16-bit / 24-bit PCM), peak/LUFS normalization, and embedding the standard WAV `smpl` loop chunk metadata.
 
-### 3. `include/export_recipe.h` & `src/export_recipe.cpp` [NEW]
+### 3. `include/export_recipe.h` & `src/export_recipe.cpp` [IMPLEMENTED]
 
-- Parses JSON batch recipes and drives the export pipeline.
+- Parses JSON batch recipes (`GlobalExportSettings`, `VehicleExportConfig`, `ExportProfile`) and drives batch/single export pipelines.
 
-### 4. `src/main.cpp` & `src/simulator.cpp` [MODIFY]
+### 4. `include/governor.h` & `src/governor.cpp` / `include/dynamometer.h` [IMPLEMENTED]
 
-- Adds `--headless` and `--export-audio <recipe.json>` command-line handling.
-- Bypasses SDL window/renderer initialization and real-time audio device binding when running headless.
+- PID / dyno governor controlling engine throttle and load simulation to hold exact target RPMs during steady-state sampling.
+
+### 5. `src/main.cpp` & `src/simulator.cpp` [IMPLEMENTED]
+
+- Adds `--export-audio <recipe.json>` and `--export-engine <script.mr>` CLI commands.
+- Bypasses SDL window/renderer initialization and real-time audio device binding when running headless exports.
 
 ---
 
